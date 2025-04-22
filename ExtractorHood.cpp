@@ -2,201 +2,156 @@
 #ifdef USE_TIME
 #include "esphome/core/time.h"
 #endif
+#include "ExtractorHood.h"
 
 namespace esphome
 {
   namespace purelinepro
   {
 
-    BLEUUID Serv_ExtractorHood("8ec90001-f315-4f60-9fb8-838830daea50"); // the service
+    const std::string lightMode[] = {"off", "white", "ambi"};
 
-    void parseAndPrintFields(const uint8_t *data, size_t len)
+    uint16_t swapEndian(uint16_t value)
     {
-      if (len < 16)
-      {
-        ESP_LOGD(TAG, "Too short\n");
-        return;
-      }
-
-      for (size_t i = 0; i + 1 < len; i += 2)
-      {
-        uint16_t val = data[i] | (data[i + 1] << 8);
-        ESP_LOGD(TAG, "Field %02zu: 0x%04X (%d)", i / 2, val, (int16_t)val);
-      }
+      return (value >> 8) | (value << 8);
+    }
+    uint32_t swapEndian(uint32_t value)
+    {
+      return ((value >> 24) & 0x000000FF) |
+             ((value >> 8) & 0x0000FF00) |
+             ((value << 8) & 0x00FF0000) |
+             ((value << 24) & 0xFF000000);
     }
 
-    void printServices(BLEAdvertisedDevice *advertisedDevice)
+    bool Packet::getBoost() const
     {
-      BLEClient *pClient = BLEDevice::createClient();
-      ESP_LOGI(TAG, "Created client");
-
-      class MyClientCallback : public BLEClientCallbacks
-      {
-      public:
-        MyClientCallback() {};
-
-        void onConnect(BLEClient *pclient)
-        {
-        }
-
-        void onDisconnect(BLEClient *pclient)
-        {
-        }
-      };
-
-      // Set up a callback function to receive connection status events
-      pClient->setClientCallbacks(new MyClientCallback());
-
-      if (!pClient->connect(advertisedDevice))
-      {
-        ESP_LOGE(TAG, "Failed to connect to device");
-        return;
-      }
-
-      ESP_LOGI(TAG, "Connected to server");
-
-      pClient->setMTU(517); // Request max MTU
-
-      // 🔹 GAP (Generic Access Profile)
-      auto gapService = pClient->getService(BLEUUID((uint16_t)0x1800));
-      if (gapService)
-      {
-        auto deviceNameChar = gapService->getCharacteristic(BLEUUID((uint16_t)0x2A00));
-        if (deviceNameChar && deviceNameChar->canRead())
-        {
-          std::string name = deviceNameChar->readValue();
-          ESP_LOGI(TAG, "Device Name: %s", name.c_str());
-        }
-      }
-
-      // 🔹 DIS (Device Information Service)
-      auto disService = pClient->getService(BLEUUID((uint16_t)0x180A));
-      if (disService)
-      {
-        auto modelChar = disService->getCharacteristic(BLEUUID((uint16_t)0x2A24));
-        auto mfrChar = disService->getCharacteristic(BLEUUID((uint16_t)0x2A29));
-
-        if (modelChar && modelChar->canRead())
-        {
-          std::string model = modelChar->readValue();
-          ESP_LOGI(TAG, "Model Number: %s", model.c_str());
-        }
-        if (mfrChar && mfrChar->canRead())
-        {
-          std::string mfr = mfrChar->readValue();
-          ESP_LOGI(TAG, "Manufacturer Name: %s", mfr.c_str());
-        }
-      }
-
-      // 🔹 Nordic UART Service (NUS)
-      BLEUUID uartServiceUUID("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-      BLEUUID txCharUUID("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
-      BLEUUID rxCharUUID("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-
-      auto nusService = pClient->getService(uartServiceUUID);
-      if (nusService)
-      {
-        auto txChar = nusService->getCharacteristic(txCharUUID);
-        auto rxChar = nusService->getCharacteristic(rxCharUUID);
-
-        if (txChar && txChar->canNotify())
-        {
-          txChar->registerForNotify([](BLERemoteCharacteristic *c, uint8_t *data, size_t len, bool isNotify)
-                                    {
-                  std::string received((char *)data, len);
-                  ESP_LOGI("UART", "Received: %s", received.c_str()); });
-        }
-
-        if (rxChar && rxChar->canWrite())
-        {
-          std::string msg = "Hello Nordic!";
-          rxChar->writeValue(msg);
-          ESP_LOGI("UART", "Sent: %s", msg.c_str());
-        }
-      }
-
-      // 🔹 List all services and characteristics
-      auto services = pClient->getServices();
-      for (auto &servicePair : *services)
-      {
-        auto *service = servicePair.second;
-        ESP_LOGI(TAG, "Service UUID: %s", service->getUUID().toString().c_str());
-
-        auto characteristics = service->getCharacteristics();
-        for (auto &charPair : *characteristics)
-        {
-          auto *characteristic = charPair.second;
-
-          std::string props;
-          if (characteristic->canRead())
-            props += "Read ";
-          if (characteristic->canWrite())
-            props += "Write ";
-          if (characteristic->canNotify())
-            props += "Notify ";
-          if (characteristic->canIndicate())
-            props += "Indicate ";
-
-          ESP_LOGI(TAG, "  Characteristic UUID: %s [%s]",
-                   characteristic->getUUID().toString().c_str(), props.c_str());
-        }
-      }
+      return flag1 && fanspeed > 75;
     }
-    void printServices(BLEClient *pClient)
+    bool Packet::getStopping() const
     {
-      // we do nothing with the connection, we only wait for messages in the callback
-      // Receive service information when connected
-      for (auto service : *pClient->getServices())
-      {
-        BLERemoteService *pRemoteService = service.second;
-        ESP_LOGI(TAG, "service %s found", pRemoteService->toString().c_str());
+      return flag1 && fanspeed == 25;
+    }
+    uint16_t Packet::getTimer() const
+    {
+      return flag1 ? swapEndian(countDown) : 0;
+    }
 
-        //
-        // subscribe to characteristics
-        //
-        for (auto characteristic : *pRemoteService->getCharacteristics())
-        {
-          auto pRemoteCharacteristic = characteristic.second;
-          if (pRemoteCharacteristic == nullptr)
-          {
-            continue;
-          }
+    bool Packet::getLightState() const
+    {
+      return lightmode > 0;
+    }
+    uint8_t Packet::getBrightness() const
+    {
+      return brightness;
+    }
+    uint8_t Packet::getColorTemp() const
+    {
+      return colortemp;
+    }
 
-          ESP_LOGI(TAG, "Found characteristic: Handle: %d, UUID: %s", pRemoteCharacteristic->getHandle(), characteristic.first.c_str());
-          if (pRemoteCharacteristic->canWrite())
-          {
-            ESP_LOGI(TAG, "The characteristic canWrite");
-          }
+    bool Packet::getFanState() const
+    {
+      return fanspeed > 0;
+    }
+    uint8_t Packet::getFanSpeed() const
+    {
+      return fanspeed;
+    }
 
-          // Read the value of the characteristic.
-          if (pRemoteCharacteristic->canRead())
-          {
-            ESP_LOGI(TAG, "The characteristic canRead");
-            std::string value = pRemoteCharacteristic->readValue();
-            ESP_LOGI(TAG, "The characteristic value was: %s", value.c_str());
-          }
+    void Packet::diff(const Packet *r) const
+    {
+#if 0
+      if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag4 != r->flag4) || (this->flag5 != r->flag5) || (this->flag6 != r->flag6) || (this->flag7 != r->flag7) || (this->fanspeed != r->fanspeed) || (this->lightmode != r->lightmode) || (this->brightness != r->brightness) || (this->colortemp != r->colortemp))
+        ESP_LOGI(TAG, "flags: %d,%d,%d,%d,%d,%d,%d,%d; speed: %d lightmode: %s, b:%d t:%d", r->flag0, r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7, r->fanspeed, lightMode[r->lightmode].c_str(), r->brightness, r->colortemp);
+#endif
+      if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag4 != r->flag4) || (this->flag5 != r->flag5) || (this->flag6 != r->flag6) || (this->flag7 != r->flag7))
+        ESP_LOGI(TAG, "flags: %d,%d,%d,%d,%d,%d,%d,%d", r->flag0, r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
+      if ((this->fanspeed != r->fanspeed) || (this->lightmode != r->lightmode) || (this->brightness != r->brightness) || (this->colortemp != r->colortemp))
+        ESP_LOGI(TAG, "speed: %d lightmode: %s, b:%d t:%d", r->fanspeed, lightMode[r->lightmode].c_str(), r->brightness, r->colortemp);
+      if (this->getTimer() != r->getTimer())
+        ESP_LOGI(TAG, "countDown: %d", r->getTimer());
+      if (this->unknown1 != r->unknown1)
+        ESP_LOGI(TAG, "unknown1 0x%04X (%d)", r->unknown1, (int16_t)r->unknown1);
+      if (this->unknown2 != r->unknown2)
+        ESP_LOGI(TAG, "unknown2 0x%02X (%d)", r->unknown2, (int8_t)r->unknown2);
+      if (this->unknown3 != r->unknown3)
+        ESP_LOGI(TAG, "unknown6 0x%04X (%d)", r->unknown3, (int16_t)r->unknown3);
+      if (this->unknown4 != r->unknown4)
+        ESP_LOGI(TAG, "unknown4 0x%04X (%d)", r->unknown4, (int16_t)r->unknown4);
+      if (this->unknown5 != r->unknown5)
+        ESP_LOGI(TAG, "unknown5 0x%04X (%d)", r->unknown5, (int16_t)r->unknown5);
+#if 1
+      if (this->unknown1 != 0x00)
+        ESP_LOGI(TAG, "unknown1 0x%04X (%d)", this->unknown1, (int16_t)this->unknown1);
+      if (this->unknown2 != 0xFF)
+        ESP_LOGI(TAG, "unknown2 0x%02X (%d)", this->unknown2, (int8_t)this->unknown2);
+      if (this->unknown3 != 0x0100)
+        ESP_LOGI(TAG, "unknown3 0x%04X (%d)", this->unknown3, (int16_t)this->unknown3);
+      if (this->unknown4 != 0x00FF)
+        ESP_LOGI(TAG, "unknown4 0x%04X (%d)", this->unknown4, (int16_t)this->unknown4);
+      if (this->unknown5 != 0x0000)
+        ESP_LOGI(TAG, "unknown5 0x%04X (%d)", this->unknown5, (int16_t)this->unknown5);
+#endif
+    }
 
-          if (pRemoteCharacteristic->canNotify())
-          {
-            ESP_LOGI(TAG, "The characteristic canNotify");
-            //pRemoteCharacteristic->registerForNotify(std::bind(&PurelinePro::notifyCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-            ESP_LOGI(TAG, "Registered Callback");
-          }
+    bool operator==(const Packet &l, const Packet &r)
+    {
+      return (l.fanspeed == r.fanspeed) && (l.lightmode == r.lightmode) && (l.brightness == r.brightness) && (l.colortemp == r.colortemp) && (l.countDown == r.countDown) &&
+             (l.flag0 == r.flag0) && (l.flag1 == r.flag1) && (l.flag2 == r.flag2) && (l.flag3 == r.flag3) && (l.flag4 == r.flag4) && (l.flag5 == r.flag5) && (l.flag6 == r.flag6) && (l.flag7 == r.flag7) &&
+             (l.unknown1 == r.unknown1) && (l.unknown2 == r.unknown2) && (l.unknown3 == r.unknown3) && (l.unknown4 == r.unknown4) && (l.unknown5 == r.unknown5);
+    }
 
-          if (pRemoteCharacteristic->canIndicate())
-          {
-            // ESP_LOGI(TAG, "The characteristic canIndicate");
-            // pRemoteCharacteristic->registerForNotify(std::bind(&PurelinePro::notifyCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-            // ESP_LOGI(TAG, "Registered Callback");
+    uint32_t ExtraPacket::getGreaseTimer() const
 
-            for (auto descriptor : *pRemoteCharacteristic->getDescriptors())
-            {
-              ESP_LOGI(TAG, "descriptor:  %s, handle %d", descriptor.first.c_str(), descriptor.second->getHandle());
-            }
-          }
-        }
-      }
-      ESP_LOGI(TAG, "done");
+    {
+      return swapEndian(greasetime) / 3600;
+    }
+
+    bool ExtraPacket::getRecirculate() const
+    {
+      return flag7;
+    }
+
+    void ExtraPacket::diff(const ExtraPacket *r) const
+    {
+      if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag4 != r->flag4) || (this->flag5 != r->flag5) || (this->flag6 != r->flag6) || (this->flag7 != r->flag7))
+        ESP_LOGI(TAG, "flags: %d,%d,%d,%d,%d,%d,%d,%d;", r->flag0, r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
+      if (this->getGreaseTimer() != r->getGreaseTimer())
+        ESP_LOGI(TAG, "GreaseTimer: %d", r->getGreaseTimer());
+      if (this->getRecirculate() != r->getRecirculate())
+        ESP_LOGI(TAG, "Recirculate: %d", r->getRecirculate());
+      if (this->unknown1 != r->unknown1)
+        ESP_LOGI(TAG, "unknown1 0x%04X (%d)", r->unknown1, (int16_t)r->unknown1);
+      if (this->unknown2 != r->unknown2)
+        ESP_LOGI(TAG, "unknown2 0x%02X (%d)", r->unknown2, (int8_t)r->unknown2);
+      if (this->unknown3 != r->unknown3)
+        ESP_LOGI(TAG, "unknown6 0x%04X (%d)", r->unknown3, (int16_t)r->unknown3);
+      if (this->unknown4 != r->unknown4)
+        ESP_LOGI(TAG, "unknown4 0x%04X (%d)", r->unknown4, (int16_t)r->unknown4);
+      if (this->unknown5 != r->unknown5)
+        ESP_LOGI(TAG, "unknown5 0x%08X (%d)", r->unknown5, (int16_t)r->unknown5);
+      if (this->unknown6 != r->unknown6)
+        ESP_LOGI(TAG, "unknown5 0x%08X (%d)", r->unknown6, (int16_t)r->unknown6);
+#if 1
+      if (this->unknown1 != 0x6419)
+        ESP_LOGI(TAG, "unknown1 0x%04X (%d)", this->unknown1, (int16_t)this->unknown1);
+      if (this->unknown2 != 0x0ff)
+        ESP_LOGI(TAG, "unknown2 0x%02X (%d)", this->unknown2, (int8_t)this->unknown2);
+      if (this->unknown3 != 0x03)
+        ESP_LOGI(TAG, "unknown3 0x%04X (%d)", this->unknown3, (int16_t)this->unknown3);
+      if (this->unknown4 != 0x02)
+        ESP_LOGI(TAG, "unknown4 0x%04X (%d)", this->unknown4, (int16_t)this->unknown4);
+      if (this->unknown5 != 0x0000)
+        ESP_LOGI(TAG, "unknown5 0x%04X (%d)", this->unknown5, (int16_t)this->unknown5);
+      if (this->unknown6 != 0x0000)
+        ESP_LOGI(TAG, "unknown5 0x%04X (%d)", this->unknown6, (int16_t)this->unknown6);
+#endif
+    }
+    bool operator==(const ExtraPacket &l, const ExtraPacket &r)
+    {
+      return (l.unknown1 == r.unknown1) && (l.unknown2 == r.unknown2) &&
+             (l.flag0 == r.flag0) && (l.flag1 == r.flag1) && (l.flag2 == r.flag2) && (l.flag3 == r.flag3) && (l.flag4 == r.flag4) && (l.flag5 == r.flag5) && (l.flag6 == r.flag6) && (l.flag7 == r.flag7) &&
+             (l.greasetime == r.greasetime) && (l.unknown3 == r.unknown3) && (l.unknown4 == r.unknown4) && (l.unknown5 == r.unknown5) && (l.unknown6 == r.unknown6);
     }
 
   } // namespace purelinepro
