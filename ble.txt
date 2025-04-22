@@ -1,0 +1,42 @@
+[21:42:24][I][app:100]: ESPHome version 2025.3.3 compiled on Apr 10 2025, 21:35:18
+[21:42:24][I][app:102]: Project bwynants.bttest version 0.1
+[21:42:38][I][PurelinePro:313]: Connected to server
+[21:42:39][I][PurelinePro:152]: service Service: uuid: 00001800-0000-1000-8000-00805f9b34fb, start_handle: 9 0x0009, end_handle: 15 0x000f found
+[21:42:39][I][PurelinePro:165]: Found characteristic: Handle: 11, UUID: 00002a00-0000-1000-8000-00805f9b34fb
+[21:42:39][I][PurelinePro:174]: The characteristic canRead
+[21:42:39][I][PurelinePro:176]: The characteristic value was: Pureline pro
+[21:42:39][I][PurelinePro:165]: Found characteristic: Handle: 13, UUID: 00002a01-0000-1000-8000-00805f9b34fb
+[21:42:39][I][PurelinePro:174]: The characteristic canRead
+[21:42:39][I][PurelinePro:176]: The characteristic value was: 
+[21:42:39][I][PurelinePro:165]: Found characteristic: Handle: 15, UUID: 00002a04-0000-1000-8000-00805f9b34fb
+[21:42:39][I][PurelinePro:174]: The characteristic canRead
+[21:42:39][I][PurelinePro:176]: The characteristic value was: 
+[21:42:39][I][PurelinePro:152]: service Service: uuid: 00001801-0000-1000-8000-00805f9b34fb, start_handle: 1 0x0001, end_handle: 8 0x0008 found
+[21:42:39][I][PurelinePro:165]: Found characteristic: Handle: 3, UUID: 00002a05-0000-1000-8000-00805f9b34fb
+[21:42:39][I][PurelinePro:194]: descriptor:  00002902-0000-1000-8000-00805f9b34fb, handle 4
+[21:42:39][I][PurelinePro:165]: Found characteristic: Handle: 6, UUID: 00002b29-0000-1000-8000-00805f9b34fb
+[21:42:39][I][PurelinePro:168]: The characteristic canWrite
+[21:42:39][I][PurelinePro:174]: The characteristic canRead
+[21:42:39][I][PurelinePro:176]: The characteristic value was: 
+[21:42:39][I][PurelinePro:165]: Found characteristic: Handle: 8, UUID: 00002b2a-0000-1000-8000-00805f9b34fb
+[21:42:39][I][PurelinePro:174]: The characteristic canRead
+[21:42:39][I][PurelinePro:176]: The characteristic value was: \xb8\x86)\xc5޹s ^\xab+>\xb1\xd5\xb7
+[21:42:39][I][PurelinePro:152]: service Service: uuid: 0000180a-0000-1000-8000-00805f9b34fb, start_handle: 16 0x0010, end_handle: 22 0x0016 found
+[21:42:39][I][PurelinePro:165]: Found characteristic: Handle: 18, UUID: 00002a24-0000-1000-8000-00805f9b34fb
+[21:42:39][I][PurelinePro:174]: The characteristic canRead
+[21:42:39][I][PurelinePro:176]: The characteristic value was: Pureline pro
+[21:42:39][I][PurelinePro:165]: Found characteristic: Handle: 22, UUID: 00002a26-0000-1000-8000-00805f9b34fb
+[21:42:39][I][PurelinePro:174]: The characteristic canRead
+[21:42:40][I][PurelinePro:176]: The characteristic value was: 3.0.2+0
+[21:42:40][I][PurelinePro:165]: Found characteristic: Handle: 20, UUID: 00002a29-0000-1000-8000-00805f9b34fb
+[21:42:40][I][PurelinePro:174]: The characteristic canRead
+[21:42:40][I][PurelinePro:176]: The characteristic value was: Novy
+[21:42:40][I][PurelinePro:152]: service Service: uuid: 6e400001-b5a3-f393-e0a9-e50e24dcca9e, start_handle: 23 0x0017, end_handle: 28 0x001c found
+[21:42:40][I][PurelinePro:165]: Found characteristic: Handle: 28, UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+[21:42:40][I][PurelinePro:168]: The characteristic canWrite
+[21:42:40][I][PurelinePro:165]: Found characteristic: Handle: 25, UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
+[21:42:40][I][PurelinePro:181]: The characteristic canNotify
+[21:42:40][I][PurelinePro:183]: Registered Callback
+[21:42:40][I][PurelinePro:152]: service Service: uuid: 8d53dc1d-1db7-4cd3-868b-8a527460aa84, start_handle: 29 0x001d, end_handle: 32 0x0020 found
+[21:42:40][I][PurelinePro:165]: Found characteristic: Handle: 31, UUID: da2e7828-fbce-4e01-ae9e-261174997c48
+[21:42:40][I][PurelinePro:181]: The characteristic canNotify
