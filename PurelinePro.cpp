@@ -1,421 +1,766 @@
+#include <iomanip>
 #include "PurelinePro.h"
+
 #ifdef USE_ESP32
-#include "ExtractorHood.h"
+#include "esphome/core/log.h"
 
 namespace esphome
 {
   namespace purelinepro
   {
 
-    /******************************* BS444 Scale *******************************************/
-    /**
-     * Scan for BLE servers and find the first one that advertises the service we are looking for.
-     *
-     */
-
-    /*
-     * The numers in use on the scale
-     */
-    const uint8_t kSleepTimeBetweenScans = 15;
     const char *TAG = "PurelinePro";
+    const char *UARTTAG = "UART";
+    esp32_ble::ESPBTUUID uartServiceUUID = esp32_ble::ESPBTUUID::from_raw("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+    esp32_ble::ESPBTUUID txCharUUID = esp32_ble::ESPBTUUID::from_raw("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
+    esp32_ble::ESPBTUUID rxCharUUID = esp32_ble::ESPBTUUID::from_raw("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
 
-    BLEUUID uartServiceUUID("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-    BLEUUID txCharUUID("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
-    BLEUUID rxCharUUID("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+    const int cmd_power = 10;
+    const int cmd_light_on_ambi = 15;
+    const int cmd_light_on_white = 16;
+    const int cmd_light_brightness = 21;
+    const int cmd_light_colortemp = 22;
 
-    // we found a device
-    void PurelinePro::onResult(BLEAdvertisedDevice &advertisedDevice)
+    const int cmd_reset_grease = 23;
+    const int cmd_fan_recirculate = 25;
+
+    const int cmd_fan_speed = 28;
+    const int cmd_fan_state = 29;
+    const int cmd_light_off = 36;
+
+    const int cmd_fan_default = 41;
+    const int cmd_light_default = 42;
+
+    const int cmd_hood_status = 400;
+    const int cmd_hood_extrastatus = 402;
+
+    void PurelinePro::handleAck(std::string_view ack)
     {
-      // ESP_LOGI(TAG, "BLE Device found  %s ", advertisedDevice.toString().c_str());
-      //  We have found a device, let us now see if it contains the service we are looking for.
-      if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(Serv_ExtractorHood))
+    }
+
+    void PurelinePro::handleSensors(const Packet *pkt)
+    {
+      // we have our own timer and the hood has a timer, combine those in reporting to HA
+      // work with the timer....
+      uint32_t auto_off_timer = pkt->getTimer();
+
+      if (this->auto_off_ && (auto_off_timer > 0))
       {
-        // devices.insert(advertisedDevice.getAddress());
-        ESP_LOGD(TAG, "BLE Advertised Device found  %s", advertisedDevice.toString().c_str());
-        BLEDevice::getScan()->stop(); // we found our device
-        extractorDevice = new BLEAdvertisedDevice(advertisedDevice);
-        mDoConnect = true;
-        mDoScan = true;
+        ESP_LOGW(TAG, "auto_off_ stopped, timer of hood active");
+        this->auto_off_ = false; // we can not have 2 timers running;
+      }
+
+      if (this->auto_off_)
+      {
+        auto currentTime = millis();
+        if (currentTime > this->auto_off_timer_)
+        {
+          ESP_LOGI(TAG, "auto_off_timer_ done");
+          this->auto_off_ = false; // stop running
+          auto_off_timer = 0;
+
+          // put fan off
+          this->extractor_fan_->state = 0;
+          this->extractor_fan_->publish_state();
+        }
+        else
+        {
+          // update value
+          auto_off_timer = (this->auto_off_timer_ - currentTime) / 1000;
+          ESP_LOGD(TAG, "auto_off_timer new value %d", auto_off_timer);
+        }
+      }
+#ifdef USE_SENSOR
+      if (this->timer_sensor_)
+      {
+        if (this->timer_sensor_->state != auto_off_timer)
+          this->timer_sensor_->publish_state(auto_off_timer);
+      }
+#endif
+#ifdef USE_BINARY_SENSOR
+      if (this->boost_binary_sensor_)
+      {
+        if (this->boost_binary_sensor_->state != pkt->getBoost())
+          this->boost_binary_sensor_->publish_state(pkt->getBoost());
+      }
+      if (this->stopping_binary_sensor_)
+      {
+        if (this->stopping_binary_sensor_->state != (pkt->getStopping() || this->auto_off_))
+          this->stopping_binary_sensor_->publish_state(pkt->getStopping() || this->auto_off_);
+      }
+#endif
+    }
+
+    void PurelinePro::handleSensors(const ExtraPacket *pkt)
+    {
+#ifdef USE_SENSOR
+      if (this->greasetimer_sensor_)
+      {
+        if (this->greasetimer_sensor_->state != pkt->getGreaseTimer())
+          this->greasetimer_sensor_->publish_state(pkt->getGreaseTimer());
+      }
+#endif
+    }
+
+    void PurelinePro::handleSwitch(const ExtraPacket *pkt)
+    {
+#ifdef USE_SWITCH
+      if (this->recirculate_switch_)
+      {
+        if (this->recirculate_switch_->state != pkt->getRecirculate())
+          this->recirculate_switch_->publish_state(pkt->getRecirculate());
+      }
+#endif
+    }
+
+    void PurelinePro::handleFan(const Packet *pkt)
+    {
+#ifdef USE_FAN
+      if (this->extractor_fan_)
+      {
+        bool publish = false;
+        if (this->extractor_fan_->state != pkt->getFanState())
+        {
+          ESP_LOGD(TAG, "setting HA fan %d -> %d", packet_->getFanState(), this->extractor_fan_->state);
+          publish = true;
+          this->extractor_fan_->state = pkt->getFanState(); // give to HA, no changing to extractor
+        }
+        if (pkt->getFanState())
+        {
+          if (this->extractor_fan_->speed != pkt->getFanSpeed())
+          {
+            publish = true;
+            ESP_LOGD(TAG, "setting HA fan speed %d -> %d", packet_->getFanSpeed(), this->extractor_fan_->speed);
+            this->extractor_fan_->speed = pkt->getFanSpeed(); // give to HA, no changing to extractor
+          }
+        }
+        if (publish)
+        {
+          if (this->auto_off_)
+            ESP_LOGI(TAG, "auto_off_timer_ stopped");
+          this->auto_off_ = false; // stop running
+          this->extractor_fan_->publish_state();
+        }
+      }
+#endif
+    }
+
+    void PurelinePro::handleLight(const Packet *pkt)
+    {
+#ifdef USE_LIGHT
+      if (this->extractor_light_)
+      {
+        bool publish = false;
+
+        if (this->extractor_light_->state_ != pkt->getLightState())
+        {
+          ESP_LOGD(TAG, "setting HA light %d -> %d", packet_->getLightState(), this->extractor_light_->state_);
+          publish = true;
+        }
+        if (pkt->getLightState())
+        {
+          if (this->extractor_light_->raw_brightness_ != pkt->getBrightness())
+          {
+            ESP_LOGD(TAG, "setting HA light B %d -> %d", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
+            this->extractor_light_->raw_brightness_ = pkt->getBrightness();
+            publish = true;
+          }
+          if (this->extractor_light_->raw_temp_ != pkt->getColorTemp())
+          {
+            ESP_LOGD(TAG, "setting HA light T %d -> %d", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
+            this->extractor_light_->raw_temp_ = pkt->getColorTemp();
+            publish = true;
+          }
+        }
+        if (publish)
+          this->extractor_light_->publish(pkt->getLightState(), this->extractor_light_->raw_brightness_, this->extractor_light_->raw_temp_);
+      }
+#endif
+    }
+
+    void PurelinePro::handleStatus(const Packet *pkt)
+    {
+      if (!pkt)
+      {
+        ESP_LOGE(TAG, "Invalid packet");
+        return;
+      }
+      this->status_pending_--;
+      if (this->status_pending_ == 0)
+      {
+        ESP_LOGD(TAG, "Status received and handling");
+        handleFan(pkt);
+        handleLight(pkt);
+      }
+      else
+      {
+        ESP_LOGW(TAG, "Status skipped %d", this->status_pending_);
+      }
+
+      if (packet_)
+      {
+        this->packet_->diff(pkt);
+        // settings applied from extractor to HA
+        *this->packet_ = *pkt;
+      }
+      else
+      {
+        // skip first, let HA restore sates it knows
+        this->packet_ = std::make_unique<struct Packet>(*pkt);
+      }
+      // update sensora always, independend of status_pending_
+      handleSensors(this->packet_.get());
+    }
+
+    void PurelinePro::handleExtraStatus(const ExtraPacket *pkt)
+    {
+      if (!pkt)
+      {
+        ESP_LOGE(TAG, "Invalid packet");
+        return;
+      }
+      this->extraStatus_pending_--;
+      if (this->extraStatus_pending_ == 0)
+      {
+        ESP_LOGD(TAG, "Extra Status received and handling");
+        handleSensors(pkt);
+#ifdef USE_ESP32 // FULL_VERSION // USE_ESP32
+        handleSwitch(pkt);
+#endif
+      }
+      else
+      {
+        ESP_LOGW(TAG, "Extra skipped %d", this->extraStatus_pending_);
+      }
+      if (extraPacket_)
+      {
+        this->extraPacket_->diff(pkt);
+        // settings applied from extractor to HA
+        *this->extraPacket_ = *pkt;
+      }
+      else
+      {
+        // skip first, let HA restore sates it knows
+        this->extraPacket_ = std::make_unique<struct ExtraPacket>(*pkt);
+      }
+    }
+
+    void PurelinePro::loop()
+    {
+      if (this->pending_request_ && (millis() > (last_request_ + 15 * 1000)))
+      {
+        // timeout....
+        ESP_LOGW(TAG, "Timeout: %d", this->pending_request_);
+        this->parent()->set_state(espbt::ClientState::CONNECTING);
+        this->parent()->set_enabled(false);
+        this->parent()->set_enabled(true);
+      }
+
+      if (millis() > (this->timer_ + 1 * 1000))
+      {
+        // some timer
+        ESP_LOGV(TAG, "connected : %s %d", (this->node_state == espbt::ClientState::ESTABLISHED) ? "yes" : "no", this->pending_request_);
+        timer_ = millis();
+      }
+    }
+
+    void PurelinePro::update()
+    {
+      ESP_LOGV(TAG, "update : %s %d", (this->node_state == espbt::ClientState::ESTABLISHED) ? "yes" : "no", this->pending_request_);
+
+      if (this->node_state != espbt::ClientState::ESTABLISHED)
+      {
+#ifdef USE_SWITCH
+        if (!this->enabled_switch_ || this->enabled_switch_->state)
+          ESP_LOGW(TAG, "!espbt::ClientState::ESTABLISHED");
+#endif
+        return;
+      }
+
+      if (this->pending_request_ != 0)
+      {
+        // we are still handling other requests
+        return;
+      }
+
+      if (packet_ && (status_pending_ == 0))
+      {
+#ifdef USE_ESP32 // FULL_VERSION // USE_ESP32
+                 // we should be up to date with packet-> if not send HA state to Extractor if different
+#ifdef USE_FAN
+        //
+        // Fan
+        //
+        bool request_status = false;
+        if (this->extractor_fan_)
+        {
+          bool on = false;
+          if (packet_->getFanState() != this->extractor_fan_->state)
+          {
+            ESP_LOGD(TAG, "setting fan %d -> %d", packet_->getFanState(), this->extractor_fan_->state);
+            // when shitching 'on' we need to restore the speed....
+            on = this->extractor_fan_->state;
+
+            std::vector<uint8_t> payload = {1, this->extractor_fan_->state};
+            send_cmd(cmd_fan_state, payload, "fanstate");
+            request_status = true;
+          }
+          if (this->extractor_fan_->state)
+          {
+            if (on || (packet_->getFanSpeed() != this->extractor_fan_->speed))
+            {
+              ESP_LOGD(TAG, "setting fanspeed %d -> %d", packet_->getFanSpeed(), this->extractor_fan_->speed);
+
+              std::vector<uint8_t> payload = {1, (uint8_t)this->extractor_fan_->speed};
+              send_cmd(cmd_fan_speed, payload, "fanspeed");
+              request_status = true;
+            }
+          }
+        }
+#endif
+#ifdef USE_LIGHT
+        //
+        // Light
+        //
+        if (this->extractor_light_)
+        {
+          bool on = false;
+          if (packet_->getLightState() != this->extractor_light_->state_)
+          {
+            ESP_LOGD(TAG, "setting light %d -> %d", packet_->getLightState(), this->extractor_light_->state_);
+            // when shitching 'on' we need to restore the colors....
+            on = this->extractor_light_->state_;
+
+            // 36;0 is off
+            // both 15 (ambi) and 16 (white) are lights
+            std::vector<uint8_t> payload = {0};
+            send_cmd(this->extractor_light_->state_ ? cmd_light_on_white : cmd_light_off, payload, "lightstate");
+            request_status = true;
+          }
+          // Brightness
+          if (on || (this->extractor_light_->state_ && (packet_->getBrightness() != this->extractor_light_->raw_brightness_)))
+          {
+            ESP_LOGD(TAG, "setting light brigthness %d -> %d", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
+
+            std::vector<uint8_t> payload = {1, this->extractor_light_->raw_brightness_};
+            send_cmd(cmd_light_brightness, payload, "brightness");
+            request_status = true;
+          }
+          // ColorTemp
+          if (on || (this->extractor_light_->state_ && (packet_->getColorTemp() != this->extractor_light_->raw_temp_)))
+          {
+            ESP_LOGD(TAG, "setting light temp %d -> %d", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
+
+            std::vector<uint8_t> payload = {1, this->extractor_light_->raw_temp_};
+            send_cmd(cmd_light_colortemp, payload, "colortemp");
+            request_status = true;
+          }
+        }
+        if (request_status)
+        {
+          ESP_LOGD(TAG, "Cmd's send, requesting status");
+          this->request_statusupdate();
+        }
+#endif
+#endif
+      }
+      if (this->pending_request_ == 0)
+      {
+        ESP_LOGD(TAG, "Nothing is happening just ask status updates");
+        this->request_statusupdate();
+
+        if (this->extraStatus_count_++ > 10)
+        {
+          this->request_extrastatusupdate();
+          this->extraStatus_count_ = 0;
+        }
       }
     }
 
     void PurelinePro::setup()
     {
-      if (fan_)
-      {
-        fan_->add_on_state_callback([this]()
-                                    { ESP_LOGI(TAG, "add_on_state_callback fan_ get_state  %d, speed %d", fan_->state, fan_->speed); });
-      }
-
-      if (light_)
-      {
-        light_->add_on_state_callback([this]()
-                                      { ESP_LOGI(TAG, "add_on_state_callback light_ state  %d, brigthness %d, colortemp %d", light_->state_, light_->raw_brightness_, light_->raw_temp_); });
-      }
-
-      BLEDevice::init("");
-
-      // Retrieve a Scanner and set the callback we want to use to be informed when we
-      // have detected a new device.  Specify that we want active scanning and start the
-      // scan to run for 5 seconds.
-      BLEScan *pBLEScan = BLEDevice::getScan();
-
-      // Register a callback function to be called when the device is discovered
-      //  and send the device to our PurelinePro object
-      class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
-      {
-      public:
-        MyAdvertisedDeviceCallbacks(PurelinePro *purelinePro) : mPurelinePro(purelinePro) {};
-        MyAdvertisedDeviceCallbacks() = delete;
-        /**
-         * Called for each advertising BLE server.
-         */
-        void onResult(BLEAdvertisedDevice advertisedDevice)
-        {
-          mPurelinePro->onResult(advertisedDevice);
-        } // onResult
-
-      private:
-        PurelinePro *mPurelinePro;
-      };
-
-      pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(this));
-      pBLEScan->setInterval(1349);
-      pBLEScan->setWindow(449);
-      pBLEScan->setActiveScan(false);
-      mDoConnect = false;
-      mDoScan = true;
-    }
-
-    void PurelinePro::loop()
-    {
-      if (millis() > (bletime + 1000))
-      {
-        bletime = millis();
-        // executes every second
-        bleClient_loop();
-      }
-      if (mConnected && packet_ && !statuspending_ && !cmdpending_)
-      {
-        ESP_LOGD(TAG, "Connected and initialized");
-#ifdef USE_SWITCH
-        // Power
-        if (powertoggle != this->powertoggle_switch_->state)
-        {
-          ESP_LOGD(TAG, "setting powertoggle %d -> %d", powertoggle, this->powertoggle_switch_->state);
-          powertoggle = this->powertoggle_switch_->state;
-
-          std::string msg = "[10;0]";
-          rxChar->writeValue(msg);
-          ESP_LOGI("UART", "Sent: %s", msg.c_str());
-          cmdpending_ = true;
-        }
+      this->rx_char_handle_ = 0;
+      this->tx_char_handle_ = 0;
+#ifdef USE_SENSOR
+      if (this->timer_sensor_)
+        this->timer_sensor_->publish_state(0);
+      if (this->greasetimer_sensor_)
+        this->greasetimer_sensor_->publish_state(0);
 #endif
+#ifdef USE_BINARY_SENSOR
+      if (this->boost_binary_sensor_)
+        this->boost_binary_sensor_->publish_state(0);
+      if (this->stopping_binary_sensor_)
+        this->stopping_binary_sensor_->publish_state(0);
+#endif
+#ifdef USE_FAN
+      if (this->extractor_fan_)
+      {
+        this->extractor_fan_->add_on_state_callback([this]()
+                                                    { 
+                                                      if (this->auto_off_)
+                                                      {
+                                                        ESP_LOGI(TAG, "auto_off_timer_ stopped");
+                                                        this->auto_off_ = false; 
+                                                      } });
+      }
+#endif
+#ifdef USE_BUTTON
+      if (this->power_button_)
+      {
+        this->power_button_->add_on_press_callback([this]()
+                                                   {
+          if (this->node_state == espbt::ClientState::ESTABLISHED)
+          {
+#ifdef USE_CMDS
+            // simulate power press
+            std::vector<uint8_t> payload = {0};
+            send_cmd(cmd_power, payload, "power");
+#endif
+          } });
+      }
+      if (this->timedoff_button_)
+      {
+        this->timedoff_button_->add_on_press_callback([this]()
+                                                      {
+                                                        if (this->extractor_fan_->state && (this->extractor_fan_->speed > 25))
+                                                        {
+                                                          this->extractor_fan_->speed = 25;
+                                                          this->extractor_fan_->publish_state();
+                                                        }
 
-        if (fanstate_ != (fan_->state ? 1 : 0))
+#ifdef USE_LIGHT
+                                                        if (this->extractor_light_->state_)
+                                                        {
+                                                          this->extractor_light_->raw_brightness_ = 70;
+                                                          this->extractor_light_->raw_temp_ = 255;
+                                                          this->extractor_light_->publish(this->extractor_light_->state_, this->extractor_light_->raw_brightness_, this->extractor_light_->raw_temp_);
+                                                        }
+#endif
+#ifdef USE_LIGHT
+                                                        if (this->extractor_fan_->state)
+                                                        {
+                                                          ESP_LOGI(TAG, "auto_off_timer_ started");
+
+                                                          this->auto_off_timer_ = millis() + 1 * 60 * 1000; // run 4 more minutes
+                                                          this->auto_off_ = true;
+                                                        }
+#endif
+                                                      });
+      }
+      if (this->defaultlight_button_)
+      {
+        this->defaultlight_button_->add_on_press_callback([this]()
+                                                          {
+          if (this->node_state == espbt::ClientState::ESTABLISHED)
+          {
+#ifdef USE_CMDS
+            // store default light
+            std::vector<uint8_t> payload = {1,1};
+            send_cmd(cmd_light_default, payload, "light_default");
+#endif
+          } });
+      }
+      if (this->defaultspeed_button_)
+      {
+        this->defaultspeed_button_->add_on_press_callback([this]()
+                                                          {
+          if (this->node_state == espbt::ClientState::ESTABLISHED)
+          {
+#ifdef USE_CMDS
+            // store default fan speed
+            std::vector<uint8_t> payload = {0};
+            send_cmd(cmd_fan_default, payload, "fan_default");
+#endif
+          } });
+      }
+      if (this->resetgrease_button_)
+      {
+        this->resetgrease_button_->add_on_press_callback([this]()
+                                                         {
+          if (this->node_state == espbt::ClientState::ESTABLISHED)
+          {
+#ifdef USE_CMDS
+            // simulate power press
+            std::vector<uint8_t> payload = {0};
+            send_cmd(cmd_reset_grease, payload, "resetgrease");
+            pending_request_--;// this does not send an acknoladge
+#endif
+          } });
+      }
+#endif
+#ifdef USE_SWITCH
+      if (this->recirculate_switch_)
+      {
+        this->recirculate_switch_->add_on_state_callback([this](bool state)
+                                                         {
+          if (this->node_state == espbt::ClientState::ESTABLISHED)
+          {
+            if (this->extraPacket_)
+            {
+              if (this->extraPacket_->getRecirculate() != state)
+              {
+#ifdef USE_CMDS
+                std::vector<uint8_t> payload = {1, state};
+                send_cmd(cmd_fan_recirculate, payload, "recirculate");
+#endif
+              }
+            }
+          } });
+      }
+      if (this->enabled_switch_)
+      {
+        this->enabled_switch_->publish_state(true);
+        this->enabled_switch_->add_on_state_callback([this](bool state)
+                                                     { this->parent()->set_enabled(state); });
+      }
+#endif
+    }
+
+    void PurelinePro::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
+                                          esp_ble_gattc_cb_param_t *param)
+    {
+      switch (event)
+      {
+      case ESP_GATTC_DISCONNECT_EVT:
+      {
+        ESP_LOGI(TAG, "Disconnected");
+
+        // make sure we send HA changes back to hood!
+        // if an automation turned it on/off it must be in that state....
+        this->packet_.reset();
+        this->extraPacket_.reset();
+
+        this->rx_char_handle_ = 0;
+        this->tx_char_handle_ = 0;
+
+        this->status_pending_ = 0;
+        this->extraStatus_pending_ = 0;
+        this->extraStatus_count_ = 0;
+
+        this->pending_request_ = 0;
+        break;
+      }
+
+      case ESP_GATTC_OPEN_EVT:
+      {
+        if (param->open.status == ESP_GATT_OK)
         {
-          ESP_LOGD(TAG, "setting fan %d -> %d", fanstate_, fan_->state);
-          fanstate_ = (fan_->state ? 1 : 0);
-
-          std::string msg = "[29;1;" + std::string(fanstate_ ? "1" : "0") + "]";
-          rxChar->writeValue(msg);
-          ESP_LOGI("UART", "Sent: %s", msg.c_str());
-          cmdpending_ = true;
+          ESP_LOGI(TAG, "Connected successfully!");
         }
-        if (fanspeed_ != fan_->speed)
-        {
-          ESP_LOGI(TAG, "setting fanspeed %d -> %d", fanspeed_, fan_->speed);
-          fanspeed_ = fan_->speed;
+        break;
+      }
 
-          std::string msg = "[28;1;" + std::to_string(fanspeed_) + "]";
-          rxChar->writeValue(msg);
-          ESP_LOGI("UART", "Sent: %s", msg.c_str());
-          cmdpending_ = true;
+      case ESP_GATTC_SEARCH_CMPL_EVT:
+      {
+        ESP_LOGI(TAG, "ESP_GATTC_SEARCH_CMPL_EVT");
+        auto tx_char = this->parent_->get_characteristic(uartServiceUUID, txCharUUID);
+        if (tx_char == nullptr)
+        {
+          ESP_LOGE(TAG, "Not Novy PureLine Pro, sorry.");
+          break;
+        }
+        this->tx_char_handle_ = tx_char->handle;
+
+        auto rx_char = this->parent_->get_characteristic(uartServiceUUID, rxCharUUID);
+        if (rx_char == nullptr)
+        {
+          ESP_LOGE(TAG, "Not Novy PureLine Pro, sorry.");
+          break;
+        }
+        this->rx_char_handle_ = rx_char->handle;
+
+        // register notify on tx char
+        auto status = esp_ble_gattc_register_for_notify(this->parent_->get_gattc_if(), this->parent_->get_remote_bda(), tx_char->handle);
+        if (status)
+        {
+          ESP_LOGW(TAG, "esp_ble_gattc_register_for_notify failed, status=%d", status);
         }
 
-        // Light
-        if (lightstate_ != this->light_->state_)
-        {
-          ESP_LOGD(TAG, "setting power %d -> %d", lightstate_, this->light_->state_);
-          lightstate_ = this->light_->state_;
+        ESP_LOGI(TAG, "Connected");
 
-          // 36;0 is off
-          // both 15 (ambi) and 16 (white) are lights
-          std::string msg = "[" + std::string(lightstate_ ? "16" : "36") + ";0]";
-          rxChar->writeValue(msg);
-          ESP_LOGI("UART", "Sent: %s", msg.c_str());
-          cmdpending_ = true;
-        }
-        // Bright
-        if (lightbrigthness_ != this->light_->raw_brightness_)
-        {
-          ESP_LOGD(TAG, "setting lightbrigthness %d -> %d", lightbrigthness_, this->light_->raw_brightness_);
-          lightbrigthness_ = this->light_->raw_brightness_;
+        break;
+      }
 
-          std::string msg = "[21;1;" + std::to_string(lightbrigthness_) + "]";
-          rxChar->writeValue(msg);
-          ESP_LOGI("UART", "Sent: %s", msg.c_str());
-          cmdpending_ = true;
-        }
-        // Color
-        if (lighttemp_ != this->light_->raw_temp_)
+      case ESP_GATTC_REG_FOR_NOTIFY_EVT:
+      {
+        this->node_state = espbt::ClientState::ESTABLISHED;
+        ESP_LOGI(TAG, "Requesting initial status");
+        request_statusupdate(); // initial
+        request_extrastatusupdate();
+        break;
+      }
+
+      case ESP_GATTC_NOTIFY_EVT:
+      {
+        if (param->notify.handle != this->tx_char_handle_)
         {
-          ESP_LOGD(TAG, "setting lighttemp %d -> %d", lighttemp_, this->light_->raw_temp_);
-          lighttemp_ = this->light_->raw_temp_;
-          std::string msg = "[22;1;" + std::to_string(lighttemp_) + "]";
-          rxChar->writeValue(msg);
-          ESP_LOGI("UART", "Sent: %s", msg.c_str());
-          cmdpending_ = true;
-        } // printServices(pClient);
+          ESP_LOGW(TAG, "Received Unknown Notification: %d", param->notify.handle);
+          break;
+        }
+        this->recieved_answer(param->notify.value, param->notify.value_len);
+        break;
+      }
+      default:
+        break;
       }
     }
 
-    void PurelinePro::notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, uint8_t *pData, size_t length, bool isNotify)
+    void PurelinePro::request_statusupdate()
     {
-      ESP_LOGD(TAG, "%s callback for characteristic %s, handle %d of data length %d data:", isNotify ? "Notify" : "", pBLERemoteCharacteristic->getUUID().toString().c_str(), pBLERemoteCharacteristic->getHandle(), length);
-      if (length && (pData[0] == '[') & (pData[length - 1] == ']'))
+      std::vector<uint8_t> payload = {0};
+      send_cmd(cmd_hood_status, payload, "state", false);
+      this->status_pending_++;
+    }
+
+    void PurelinePro::request_extrastatusupdate()
+    {
+      std::vector<uint8_t> payload = {0};
+      send_cmd(cmd_hood_extrastatus, payload, "state", false);
+      this->extraStatus_pending_++;
+    }
+
+    void PurelinePro::send_cmd(int command_id, const std::vector<uint8_t> &args, const std::string &msg, bool log)
+    {
+      std::string payload = "[" + std::to_string(command_id);
+      for (int arg : args)
       {
-        std::string receivedData((char *)pData, length);
-        ESP_LOGI(TAG, "Received Reply: %s", receivedData.c_str());
-        cmdpending_ = false;
+        payload += ";" + std::to_string(arg);
       }
-      else if (length == 16)
+      payload += "]";
+
+      send_cmd(payload, msg, log);
+    }
+
+    void PurelinePro::send_cmd(std::string cmd, const std::string &msg, bool log)
+    {
+      if (this->node_state != espbt::ClientState::ESTABLISHED)
+        return;
+
+      uint8_t *raw_data = reinterpret_cast<uint8_t *>(cmd.data());
+      size_t length = cmd.size();
+
+      // Convert to std::vector<uint8_t>
+      auto status = esp_ble_gattc_write_char(this->parent_->get_gattc_if(), this->parent_->get_conn_id(),
+                                             this->rx_char_handle_, length, raw_data,
+                                             ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE);
+      if (status)
       {
-        esphome::purelinepro::Packet *pkt = reinterpret_cast<Packet *>(pData);
-        if ((packet_ == nullptr) || (*packet_ != *pkt))
-        {
-          if (!packet_)
-            packet_ = new Packet();
-
-          if (this->fan_)
-          {
-            bool publish = false;
-            if (pkt->fanspeed != fanspeed_)
-            {
-              publish = true;
-              fanspeed_ = pkt->fanspeed;
-              fan_->speed = pkt->fanspeed; // give to HA, no changing to extractor
-            }
-            int pktState = (pkt->fanspeed > 0) ? 1:0;
-            if (pktState != fanstate_)
-            {
-              publish = true;
-              fanstate_ = pktState;
-              fan_->state = pktState; // give to HA, no changing to extractor
-            }
-
-            if (publish)
-              fan_->publish_state();
-          }
-
-          if (this->light_)
-          {
-            bool publish = false;
-            if (lightstate_ != pkt->lightmode)
-            {
-              publish = true;
-              lightstate_ = (pkt->lightmode != 0);
-            }
-            if (lightbrigthness_ != pkt->brightness)
-            {
-              publish = true;
-              lightbrigthness_ = pkt->brightness;
-            }
-            if (lighttemp_ != pkt->lightmode)
-            {
-              publish = true;
-              lighttemp_ = pkt->colortemp;
-            }
-            if (publish)
-              light_->set_raw(lightstate_ > 0, lightbrigthness_, lighttemp_);
-          }
-
-          if (this->timer_sensor_)
-          {
-            if (this->timer_sensor_->state != pkt->countDown)
-              this->timer_sensor_->publish_state(pkt->countDown);
-          }
-
-          ESP_LOGI(TAG, "flags: %d%,%d%,%d%,%d%,%d%,%d%,%d%,%d%", pkt->flag0, pkt->timerflag, pkt->flag2, pkt->flag3, pkt->flag4, pkt->flag5, pkt->flag6, pkt->flag7);
-          ESP_LOGI(TAG, "speed: %d%", pkt->fanspeed);
-          std::string lightMode[] = {"off", "white", "ambi"};
-          ESP_LOGI(TAG, "lightmode: %s, b:%d t:%d", lightMode[pkt->lightmode].c_str(), pkt->brightness, pkt->colortemp);
-          if (pkt->timerflag && pkt->countDown)
-            ESP_LOGI(TAG, "countDown: %d", pkt->countDown);
-
-          if (pkt->unknown1 != 0x00)
-            ESP_LOGI(TAG, "unknown1 0x%04X (%d)", pkt->unknown1, (int16_t)pkt->unknown1);
-          if (pkt->unknown2 != 0xFF)
-            ESP_LOGI(TAG, "unknown2 0x%02X (%d)", pkt->unknown2, (int8_t)pkt->unknown2);
-          if (pkt->unknown4 != 0x0100)
-            ESP_LOGI(TAG, "unknown4 0x%04X (%d)", pkt->unknown4, (int16_t)pkt->unknown4);
-          if (pkt->unknown5 != 0x00FF)
-            ESP_LOGI(TAG, "unknown5 0x%04X (%d)", pkt->unknown5, (int16_t)pkt->unknown5);
-          if (pkt->unknown6 != 0x0000)
-            ESP_LOGI(TAG, "unknown6 0x%04X (%d)", pkt->unknown6, (int16_t)pkt->unknown6);
-
-          *packet_ = *pkt;
-        }
-        statuspending_ = false;
+        ESP_LOGW(UARTTAG, "esp_ble_gattc_write_char, error = %d (%s)", status, cmd.data());
       }
       else
       {
-        parseAndPrintFields(pData, length);
-        std::string receivedData((char *)pData, length);
-        ESP_LOGI(TAG, "Received Notification: %s", receivedData.c_str());
-      }
-    }
-
-    void PurelinePro::onDisconnect(BLEClient *pclient)
-    {
-      ESP_LOGD(TAG, "onDisconnect");
-      mConnected = false;
-      mDoScan = true;
-      rxChar = nullptr;
-    }
-
-    // Function that attempts to connect to the device, here is the KEY!!!
-    bool PurelinePro::connectToServer()
-    {
-      // extractorDevice is a variable containing information about the device to be connected.
-      // In the device scan below, information will be entered into the corresponding variable.
-      ESP_LOGD(TAG, "Creating a connection to %s", extractorDevice->getAddress().toString().c_str());
-
-      // Create a client (Central) class to connect to the server (Pheriphral)
-      pClient = BLEDevice::createClient();
-      ESP_LOGD(TAG, "Created client");
-
-      class MyClientCallback : public BLEClientCallbacks
-      {
-      public:
-        MyClientCallback(PurelinePro *purelinePro) : mPurelinePro(purelinePro) {};
-        MyClientCallback() = delete;
-
-        void onConnect(BLEClient *pclient)
-        {
-        }
-
-        void onDisconnect(BLEClient *pclient)
-        {
-          mPurelinePro->onDisconnect(pclient);
-        }
-
-      private:
-        PurelinePro *mPurelinePro;
-      };
-
-      // Set up a callback function to receive connection status events
-      pClient->setClientCallbacks(new MyClientCallback(this));
-      ESP_LOGD(TAG, "callbacks set");
-
-      // Finally tried to connect to the server (Pheriphral) device!!!
-      pClient->connect(extractorDevice); // if you pass BLEAdvertisedDevice instead of address, it will be recognized type of peer device address (public or private)
-      ESP_LOGI(TAG, "Connected to server");
-      // set client to request maximum MTU from server (default is 23 otherwise)
-      pClient->setMTU(517);
-
-      auto nusService = pClient->getService(uartServiceUUID);
-      if (nusService)
-      {
-        auto txChar = nusService->getCharacteristic(txCharUUID);
-        if (txChar && txChar->canNotify())
-          txChar->registerForNotify(std::bind(&PurelinePro::notifyCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-        rxChar = nusService->getCharacteristic(rxCharUUID);
-      }
-      printServices(pClient);
-      // If you have reached this point, set a variable to indicate that the connection was successful.
-      mConnected = true;
-      return true;
-    }
-
-    void PurelinePro::bleClient_loop()
-    {
-      // If the flag "mDoConnect" is true then we have scanned for and found the desired
-      // BLE Server with which we wish to connect.  Now we connect to it.  Once we are
-      // connected we set the mConnected flag to be true.
-      if (mDoConnect)
-      {
-        if (connectToServer())
-          ESP_LOGI(TAG, "We are now connected to the BLE Server.");
+        if (log)
+          ESP_LOGI(UARTTAG, "Sent: %s (%s)", cmd.data(), msg.data());
         else
-          ESP_LOGE(TAG, "We have failed to connect to the server; there is nothing more we will do.");
-        mDoConnect = false;
+          ESP_LOGD(UARTTAG, "Sent: %s (%s)", cmd.data(), msg.data());
+        this->last_request_ = millis();
+        this->pending_request_++;
       }
+    }
 
-      if (mConnected)
+    void PurelinePro::recieved_answer(uint8_t *pData, uint16_t length)
+    {
+      if (length && (pData[0] == '[') && (pData[length - 1] == ']'))
       {
-        // If we are connected to a peer BLE Server, update the characteristic each time we are reached
-        // with the current time since boot.
-        if (!cmdpending_ && !statuspending_ && rxChar && rxChar->canWrite())
-        {
-          std::string msg = "[400;0]";
-          rxChar->writeValue(msg);
-          // ESP_LOGI("UART", "Sent: %s", msg.c_str());
-          statuspending_ = true;
-        }
+        std::string_view sv(reinterpret_cast<const char *>(pData), length);
 
-        bletime = millis() + 1 * 1000; // next itertation in 1 seconds
+        ESP_LOGD(UARTTAG, "Received Reply: %.*s", static_cast<int>(sv.length()), sv.data());
+        handleAck(sv);
+      }
+      else if (length == sizeof(Packet))
+      {
+        ESP_LOGD(UARTTAG, "Received Status");
+        handleStatus((Packet *)(pData)); // reinterpret_cast
+      }
+      else if (length == sizeof(ExtraPacket))
+      {
+        ESP_LOGD(UARTTAG, "Received ExtraStatus");
+        handleExtraStatus((ExtraPacket *)(pData)); // reinterpret_cast
       }
       else
       {
-        if (mDoScan)
+        std::stringstream hexStream;
+        hexStream << std::hex << std::setfill('0');
+        for (uint16_t i = 0; i < length; ++i)
         {
-          ESP_LOGI(TAG, "Starting scan in %d seconds.", kSleepTimeBetweenScans);
-          // start a next scan in 30 time
-          mDoScan = false;
-          mScan = true;
-
-          bletime = millis() + kSleepTimeBetweenScans * 1000; // delay next itertation
+          hexStream << std::setw(2) << static_cast<int>(pData[i]);
+          if ((i + 1) % 20 == 0 && (i + 1) < length)
+          {
+            hexStream << "\n"; // Add newline for better readability in logs
+          }
+          else if ((i + 1) % 4 == 0 && (i + 1) < length)
+          {
+            hexStream << " "; // Add space for better readability
+          }
         }
-        if (mScan)
-        {
-          mScan = false;
-          mDoScan = true; // restarting a delayed scan whenever possible
-                          // If the connection is released and mDoScan is true, start scanning
-          ESP_LOGI(TAG, "Restarting scan.");
-          BLEDevice::getScan()->start(1, false);
-        }
+        ESP_LOGI(UARTTAG, "%s", hexStream.str().c_str());
       }
+      this->pending_request_--;
     }
 
     void PurelinePro::dump_config()
     {
       ESP_LOGCONFIG(TAG, "PurelinePro:");
-      // LOG_FAN("  ", "", this->fan_);
+#ifdef USE_FAN
+      if (this->extractor_fan_)
+        this->extractor_fan_->dump_config();
+#endif
+#ifdef USE_LIGHT
+      if (this->extractor_light_)
+        this->extractor_light_->dump_config();
+#endif
+#ifdef USE_BUTTON
+      LOG_BUTTON("", "power", this->power_button_);
+      LOG_BUTTON("", "timedoff", this->timedoff_button_);
+      LOG_BUTTON("", "defaultlight", this->defaultlight_button_);
+      LOG_BUTTON("", "defaultspeed", this->defaultspeed_button_);
+      LOG_BUTTON("", "resetgrease", this->resetgrease_button_);
+#endif
 #ifdef USE_SWITCH
-      LOG_SWITCH("  ", "PowerToggle", this->powertoggle_switch_);
+      LOG_SWITCH("", "recirculate", this->recirculate_switch_);
+      LOG_SWITCH("", "enabled", this->enabled_switch_);
 #endif
-      if (this->timer_sensor_)
-        LOG_SENSOR(TAG, " timer", this->timer_sensor_);
-    }
-
-#ifdef USE_TIME
-    void PurelinePro::set_time_id(time::RealTimeClock *time_id)
-    {
-      ESPTime now = time_id->now();
-      ESP_LOGI(TAG, "setting time %ld!", time_id->now().timestamp);
-      this->time_id_ = time_id;
-    }
+#ifdef USE_SENSOR
+      LOG_SENSOR(TAG, " timer", this->timer_sensor_);
 #endif
-
-    time_t PurelinePro::now()
-    {
-#ifdef USE_TIME
-      if (this->time_id_.has_value())
-      {
-        auto *time_id = *this->time_id_;
-        ESPTime now = time_id->now();
-        return time_id->now().timestamp;
-      }
-      else
+#ifdef USE_BINARY_SENSOR
+      LOG_BINARY_SENSOR(TAG, "boost", this->boost_binary_sensor_);
+      LOG_BINARY_SENSOR(TAG, "stopping", this->stopping_binary_sensor_);
 #endif
-      {
-        ESP_LOGI(TAG, "Time unknown!");
-        return millis() / 1000; // some stupid value.....
-      }
     }
+    /*
+        void PurelinePro::control(const CoverCall &call) {
+          if (this->node_state != espbt::ClientState::ESTABLISHED) {
+            ESP_LOGW(TAG, "[%s] Cannot send cover control, not connected", this->get_name().c_str());
+            return;
+          }
+          if (call.get_stop()) {
+            auto *packet = this->encoder_->get_stop_request();
+            auto status =
+                esp_ble_gattc_write_char(this->parent_->get_gattc_if(), this->parent_->get_conn_id(), this->char_handle_,
+                                         packet->length, packet->data, ESP_GATT_WRITE_TYPE_NO_RSP, ESP_GATT_AUTH_REQ_NONE);
+            if (status) {
+              ESP_LOGW(TAG, "[%s] Error writing stop command to device, error = %d", this->get_name().c_str(), status);
+            }
+          }
+          if (call.get_position().has_value()) {
+            auto pos = *call.get_position();
 
-  } // namespace purelinepro
+            if (this->invert_position_)
+              pos = 1 - pos;
+            auto *packet = this->encoder_->get_set_position_request(100 - (uint8_t) (pos * 100));
+            auto status =
+                esp_ble_gattc_write_char(this->parent_->get_gattc_if(), this->parent_->get_conn_id(), this->char_handle_,
+                                         packet->length, packet->data, ESP_GATT_WRITE_TYPE_NO_RSP, ESP_GATT_AUTH_REQ_NONE);
+            if (status) {
+              ESP_LOGW(TAG, "[%s] Error writing set_position command to device, error = %d", this->get_name().c_str(), status);
+            }
+          }
+        }
+        */
+
+  } // namespace am43
 } // namespace esphome
 
-#endif // USE_ESP32
+#endif

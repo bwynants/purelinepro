@@ -9,6 +9,7 @@ namespace esphome
 {
   namespace purelinepro
   {
+    extern const char *TAG;
 
     class ExtractorSwitch : public switch_::Switch, public Component
     {
