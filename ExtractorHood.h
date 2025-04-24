@@ -64,13 +64,14 @@ namespace esphome
     public:
       uint32_t getGreaseTimer() const;
       bool getRecirculate() const;
+      std::string getVersion() const;
 
       void diff(const ExtraPacket *r) const;
 
       friend bool operator==(const ExtraPacket &l, const ExtraPacket &r);
 
     private:
-      uint16_t unknown1;
+      uint16_t unknown1;  // 1964
       unsigned char flag0 : 1;
       unsigned char flag1 : 1;
       unsigned char flag2 : 1;
@@ -79,12 +80,14 @@ namespace esphome
       unsigned char flag5 : 1;
       unsigned char flag6 : 1;
       unsigned char flag7 : 1;
-      uint8_t unknown2;
+      uint8_t unknown2; // ff
       uint32_t greasetime;
-      uint16_t unknown3;
-      uint16_t unknown4;
+      uint8_t major;
+      uint8_t unknown3;
+      uint8_t patch;
+      uint8_t minor;
+      uint32_t unknown4;
       uint32_t unknown5;
-      uint32_t unknown6;
     };
     inline bool operator!=(const ExtraPacket &lhs, const ExtraPacket &rhs) { return !(lhs == rhs); }
 

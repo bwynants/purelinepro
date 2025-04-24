@@ -1,14 +1,6 @@
 #pragma once
 
 #define USE_CMDS
-//#define FULL_VERSION
-// #undef USE_SENSOR
-// #undef USE_FAN
-// #undef USE_LIGHT
-// #undef USE_BUTTON
-// #undef USE_SWITCH
-// #undef USE_BINARY_SENSOR
-// #undef USE_TIME
 
 #ifndef USE_ESP32
 #define USE_ESP32
@@ -169,8 +161,8 @@ namespace esphome
       void request_extrastatusupdate();
 
     protected:
-      uint16_t rx_char_handle_;
-      uint16_t tx_char_handle_;
+      uint16_t rx_char_handle_ = 0;
+      uint16_t tx_char_handle_ = 0;
 
       // last packet received
       std::unique_ptr<struct Packet> packet_ = nullptr;

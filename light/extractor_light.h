@@ -84,7 +84,7 @@ namespace esphome
         raw_brightness_ = brightness;
         raw_temp_ = color_temp;
 
-        ESP_LOGD("remote_light", "Hood -> HA state :%d, brightness %.2f(%u), mireds %.2f(%u)", state, to_brightness(raw_brightness_), raw_brightness_, to_mireds(raw_temp_), raw_temp_);
+        ESP_LOGD(TAG, "Hood -> HA state :%d, brightness %.2f(%u), mireds %.2f(%u)", state, to_brightness(raw_brightness_), raw_brightness_, to_mireds(raw_temp_), raw_temp_);
 
         update_esp_light();
       }

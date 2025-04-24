@@ -40,6 +40,7 @@ namespace esphome
 
     void PurelinePro::handleSensors(const Packet *pkt)
     {
+      ESP_LOGD(TAG, "handleSensors");
       // we have our own timer and the hood has a timer, combine those in reporting to HA
       // work with the timer....
       uint32_t auto_off_timer = pkt->getTimer();
@@ -80,19 +81,21 @@ namespace esphome
 #ifdef USE_BINARY_SENSOR
       if (this->boost_binary_sensor_)
       {
-        if (this->boost_binary_sensor_->state != pkt->getBoost())
+        if (!this->boost_binary_sensor_->has_state() || (this->boost_binary_sensor_->state != pkt->getBoost()))
           this->boost_binary_sensor_->publish_state(pkt->getBoost());
       }
       if (this->stopping_binary_sensor_)
       {
-        if (this->stopping_binary_sensor_->state != (pkt->getStopping() || this->auto_off_))
-          this->stopping_binary_sensor_->publish_state(pkt->getStopping() || this->auto_off_);
+        auto state = pkt->getStopping() || this->auto_off_;
+        if (!this->stopping_binary_sensor_->has_state() || (this->stopping_binary_sensor_->state != state))
+          this->stopping_binary_sensor_->publish_state(state);
       }
 #endif
     }
 
     void PurelinePro::handleSensors(const ExtraPacket *pkt)
     {
+      ESP_LOGD(TAG, "handleSensors");
 #ifdef USE_SENSOR
       if (this->greasetimer_sensor_)
       {
@@ -115,6 +118,7 @@ namespace esphome
 
     void PurelinePro::handleFan(const Packet *pkt)
     {
+      ESP_LOGD(TAG, "handleFan");
 #ifdef USE_FAN
       if (this->extractor_fan_)
       {
@@ -139,6 +143,7 @@ namespace esphome
           if (this->auto_off_)
             ESP_LOGI(TAG, "auto_off_timer_ stopped");
           this->auto_off_ = false; // stop running
+          ESP_LOGI(TAG, "setting fanspeed from pkt %d -> %d", this->extractor_fan_->speed, pkt->getFanSpeed());
           this->extractor_fan_->publish_state();
         }
       }
@@ -147,6 +152,7 @@ namespace esphome
 
     void PurelinePro::handleLight(const Packet *pkt)
     {
+      ESP_LOGD(TAG, "handleLight");
 #ifdef USE_LIGHT
       if (this->extractor_light_)
       {
@@ -154,38 +160,39 @@ namespace esphome
 
         if (this->extractor_light_->state_ != pkt->getLightState())
         {
-          ESP_LOGD(TAG, "setting HA light %d -> %d", packet_->getLightState(), this->extractor_light_->state_);
+          ESP_LOGI(TAG, "setting HA light %d -> %d", packet_->getLightState(), this->extractor_light_->state_);
+          this->extractor_light_->state_ = pkt->getLightState();
           publish = true;
         }
         if (pkt->getLightState())
         {
           if (this->extractor_light_->raw_brightness_ != pkt->getBrightness())
           {
-            ESP_LOGD(TAG, "setting HA light B %d -> %d", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
+            ESP_LOGI(TAG, "setting HA light B %d -> %d", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
             this->extractor_light_->raw_brightness_ = pkt->getBrightness();
             publish = true;
           }
           if (this->extractor_light_->raw_temp_ != pkt->getColorTemp())
           {
-            ESP_LOGD(TAG, "setting HA light T %d -> %d", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
+            ESP_LOGI(TAG, "setting HA light T %d -> %d", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
             this->extractor_light_->raw_temp_ = pkt->getColorTemp();
             publish = true;
           }
         }
         if (publish)
-          this->extractor_light_->publish(pkt->getLightState(), this->extractor_light_->raw_brightness_, this->extractor_light_->raw_temp_);
+          this->extractor_light_->publish(this->extractor_light_->state_, this->extractor_light_->raw_brightness_, this->extractor_light_->raw_temp_);
       }
 #endif
     }
 
     void PurelinePro::handleStatus(const Packet *pkt)
     {
+      ESP_LOGD(TAG, "handleStatus");
       if (!pkt)
       {
         ESP_LOGE(TAG, "Invalid packet");
         return;
       }
-      this->status_pending_--;
       if (this->status_pending_ == 0)
       {
         ESP_LOGD(TAG, "Status received and handling");
@@ -208,25 +215,23 @@ namespace esphome
         // skip first, let HA restore sates it knows
         this->packet_ = std::make_unique<struct Packet>(*pkt);
       }
-      // update sensora always, independend of status_pending_
+      // update sensors always, independend of status_pending_
       handleSensors(this->packet_.get());
     }
 
-    void PurelinePro::handleExtraStatus(const ExtraPacket *pkt)
+    void PurelinePro::handleExtraStatus(const ExtraPacket *extraPkt)
     {
-      if (!pkt)
+      ESP_LOGD(TAG, "handleExtraStatus");
+      if (!extraPkt)
       {
         ESP_LOGE(TAG, "Invalid packet");
         return;
       }
-      this->extraStatus_pending_--;
       if (this->extraStatus_pending_ == 0)
       {
         ESP_LOGD(TAG, "Extra Status received and handling");
-        handleSensors(pkt);
-#ifdef USE_ESP32 // FULL_VERSION // USE_ESP32
-        handleSwitch(pkt);
-#endif
+        handleSensors(extraPkt);
+        handleSwitch(extraPkt);
       }
       else
       {
@@ -234,14 +239,14 @@ namespace esphome
       }
       if (extraPacket_)
       {
-        this->extraPacket_->diff(pkt);
+        this->extraPacket_->diff(extraPkt);
         // settings applied from extractor to HA
-        *this->extraPacket_ = *pkt;
+        *this->extraPacket_ = *extraPkt;
       }
       else
       {
         // skip first, let HA restore sates it knows
-        this->extraPacket_ = std::make_unique<struct ExtraPacket>(*pkt);
+        this->extraPacket_ = std::make_unique<struct ExtraPacket>(*extraPkt);
       }
     }
 
@@ -283,87 +288,6 @@ namespace esphome
         return;
       }
 
-      if (packet_ && (status_pending_ == 0))
-      {
-#ifdef USE_ESP32 // FULL_VERSION // USE_ESP32
-                 // we should be up to date with packet-> if not send HA state to Extractor if different
-#ifdef USE_FAN
-        //
-        // Fan
-        //
-        bool request_status = false;
-        if (this->extractor_fan_)
-        {
-          bool on = false;
-          if (packet_->getFanState() != this->extractor_fan_->state)
-          {
-            ESP_LOGD(TAG, "setting fan %d -> %d", packet_->getFanState(), this->extractor_fan_->state);
-            // when shitching 'on' we need to restore the speed....
-            on = this->extractor_fan_->state;
-
-            std::vector<uint8_t> payload = {1, this->extractor_fan_->state};
-            send_cmd(cmd_fan_state, payload, "fanstate");
-            request_status = true;
-          }
-          if (this->extractor_fan_->state)
-          {
-            if (on || (packet_->getFanSpeed() != this->extractor_fan_->speed))
-            {
-              ESP_LOGD(TAG, "setting fanspeed %d -> %d", packet_->getFanSpeed(), this->extractor_fan_->speed);
-
-              std::vector<uint8_t> payload = {1, (uint8_t)this->extractor_fan_->speed};
-              send_cmd(cmd_fan_speed, payload, "fanspeed");
-              request_status = true;
-            }
-          }
-        }
-#endif
-#ifdef USE_LIGHT
-        //
-        // Light
-        //
-        if (this->extractor_light_)
-        {
-          bool on = false;
-          if (packet_->getLightState() != this->extractor_light_->state_)
-          {
-            ESP_LOGD(TAG, "setting light %d -> %d", packet_->getLightState(), this->extractor_light_->state_);
-            // when shitching 'on' we need to restore the colors....
-            on = this->extractor_light_->state_;
-
-            // 36;0 is off
-            // both 15 (ambi) and 16 (white) are lights
-            std::vector<uint8_t> payload = {0};
-            send_cmd(this->extractor_light_->state_ ? cmd_light_on_white : cmd_light_off, payload, "lightstate");
-            request_status = true;
-          }
-          // Brightness
-          if (on || (this->extractor_light_->state_ && (packet_->getBrightness() != this->extractor_light_->raw_brightness_)))
-          {
-            ESP_LOGD(TAG, "setting light brigthness %d -> %d", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
-
-            std::vector<uint8_t> payload = {1, this->extractor_light_->raw_brightness_};
-            send_cmd(cmd_light_brightness, payload, "brightness");
-            request_status = true;
-          }
-          // ColorTemp
-          if (on || (this->extractor_light_->state_ && (packet_->getColorTemp() != this->extractor_light_->raw_temp_)))
-          {
-            ESP_LOGD(TAG, "setting light temp %d -> %d", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
-
-            std::vector<uint8_t> payload = {1, this->extractor_light_->raw_temp_};
-            send_cmd(cmd_light_colortemp, payload, "colortemp");
-            request_status = true;
-          }
-        }
-        if (request_status)
-        {
-          ESP_LOGD(TAG, "Cmd's send, requesting status");
-          this->request_statusupdate();
-        }
-#endif
-#endif
-      }
       if (this->pending_request_ == 0)
       {
         ESP_LOGD(TAG, "Nothing is happening just ask status updates");
@@ -379,30 +303,107 @@ namespace esphome
 
     void PurelinePro::setup()
     {
-      this->rx_char_handle_ = 0;
-      this->tx_char_handle_ = 0;
 #ifdef USE_SENSOR
-      if (this->timer_sensor_)
-        this->timer_sensor_->publish_state(0);
-      if (this->greasetimer_sensor_)
-        this->greasetimer_sensor_->publish_state(0);
+      //if (this->timer_sensor_)
+      //  this->timer_sensor_->publish_state(0);
+      //if (this->greasetimer_sensor_)
+      //  this->greasetimer_sensor_->publish_state(20);// default is 20 hours
 #endif
 #ifdef USE_BINARY_SENSOR
-      if (this->boost_binary_sensor_)
-        this->boost_binary_sensor_->publish_state(0);
-      if (this->stopping_binary_sensor_)
-        this->stopping_binary_sensor_->publish_state(0);
+      //if (this->boost_binary_sensor_)
+      //  this->boost_binary_sensor_->publish_state(0);
+      //if (this->stopping_binary_sensor_)
+      //  this->stopping_binary_sensor_->publish_state(0);
 #endif
 #ifdef USE_FAN
       if (this->extractor_fan_)
       {
+        this->extractor_fan_->speed = 50; // initial default
         this->extractor_fan_->add_on_state_callback([this]()
-                                                    { 
+                                                    {
+                                                      ESP_LOGD(TAG, "extractor_fan_->add_on_state_callback");
                                                       if (this->auto_off_)
+                                                        this->auto_off_ = false;
+
+                                                      if(packet_)
                                                       {
-                                                        ESP_LOGI(TAG, "auto_off_timer_ stopped");
-                                                        this->auto_off_ = false; 
+                                                        bool request_status = false;
+                                                        bool on = false;
+                                                        if (packet_->getFanState() != this->extractor_fan_->state)
+                                                        {
+                                                          ESP_LOGI(TAG, "setting fan %d -> %d", packet_->getFanState(), this->extractor_fan_->state);
+                                                          // when shitching 'on' we need to restore the speed....
+                                                          on = this->extractor_fan_->state;
+
+                                                          std::vector<uint8_t> payload = {1, this->extractor_fan_->state};
+                                                          send_cmd(cmd_fan_state, payload, "fanstate");
+                                                          request_status = true;
+                                                        }
+                                                        if (this->extractor_fan_->state)
+                                                        {
+                                                          if (on || (packet_->getFanSpeed() != this->extractor_fan_->speed))
+                                                          {
+                                                            ESP_LOGI(TAG, "setting fanspeed %d -> %d", packet_->getFanSpeed(), this->extractor_fan_->speed);
+
+                                                            std::vector<uint8_t> payload = {1, (uint8_t)this->extractor_fan_->speed};
+                                                            send_cmd(cmd_fan_speed, payload, "fanspeed");
+                                                            request_status = true;
+                                                          }
+                                                        }
+                                                        if (request_status)
+                                                        {
+                                                          ESP_LOGD(TAG, "Cmd's send, requesting status");
+                                                          this->request_statusupdate();
+                                                        }
                                                       } });
+      }
+#endif
+#ifdef USE_LIGHT
+      if (this->extractor_light_)
+      {
+        this->extractor_light_->add_on_state_callback([this]()
+                                                      { 
+                                                        ESP_LOGD(TAG, "this->extractor_light_->add_on_state_callback");
+                                                        if(packet_)
+                                                        {
+                                                          bool request_status = false;
+                                                          bool on = false;
+                                                          if (packet_->getLightState() != this->extractor_light_->state_)
+                                                          {
+                                                            ESP_LOGD(TAG, "setting light %d -> %d", packet_->getLightState(), this->extractor_light_->state_);
+                                                            // when shitching 'on' we need to restore the colors....
+                                                            on = this->extractor_light_->state_;
+                                                
+                                                            // 36;0 is off
+                                                            // both 15 (ambi) and 16 (white) are lights
+                                                            std::vector<uint8_t> payload = {0};
+                                                            send_cmd(this->extractor_light_->state_ ? cmd_light_on_white : cmd_light_off, payload, "lightstate");
+                                                            request_status = true;
+                                                          }
+                                                          // Brightness
+                                                          if (on || (this->extractor_light_->state_ && (packet_->getBrightness() != this->extractor_light_->raw_brightness_)))
+                                                          {
+                                                            ESP_LOGD(TAG, "setting light brigthness %d -> %d", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
+                                                
+                                                            std::vector<uint8_t> payload = {1, this->extractor_light_->raw_brightness_};
+                                                            send_cmd(cmd_light_brightness, payload, "brightness");
+                                                            request_status = true;
+                                                          }
+                                                          // ColorTemp
+                                                          if (on || (this->extractor_light_->state_ && (packet_->getColorTemp() != this->extractor_light_->raw_temp_)))
+                                                          {
+                                                            ESP_LOGD(TAG, "setting light temp %d -> %d", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
+                                                
+                                                            std::vector<uint8_t> payload = {1, this->extractor_light_->raw_temp_};
+                                                            send_cmd(cmd_light_colortemp, payload, "colortemp");
+                                                            request_status = true;
+                                                          }
+                                                          if (request_status)
+                                                          {
+                                                            ESP_LOGD(TAG, "Cmd's send, requesting status");
+                                                            this->request_statusupdate();
+                                                          }
+                                                        } });
       }
 #endif
 #ifdef USE_BUTTON
@@ -423,12 +424,6 @@ namespace esphome
       {
         this->timedoff_button_->add_on_press_callback([this]()
                                                       {
-                                                        if (this->extractor_fan_->state && (this->extractor_fan_->speed > 25))
-                                                        {
-                                                          this->extractor_fan_->speed = 25;
-                                                          this->extractor_fan_->publish_state();
-                                                        }
-
 #ifdef USE_LIGHT
                                                         if (this->extractor_light_->state_)
                                                         {
@@ -437,12 +432,18 @@ namespace esphome
                                                           this->extractor_light_->publish(this->extractor_light_->state_, this->extractor_light_->raw_brightness_, this->extractor_light_->raw_temp_);
                                                         }
 #endif
-#ifdef USE_LIGHT
+#ifdef USE_FAN
+                                                        if (this->extractor_fan_->state && (this->extractor_fan_->speed > 25))
+                                                        {
+                                                          ESP_LOGI(TAG, "reducing fanspeed %d -> %d", this->extractor_fan_->speed, 25);
+                                                          this->extractor_fan_->speed = 25;
+                                                          this->extractor_fan_->publish_state();
+                                                        }
                                                         if (this->extractor_fan_->state)
                                                         {
                                                           ESP_LOGI(TAG, "auto_off_timer_ started");
 
-                                                          this->auto_off_timer_ = millis() + 1 * 60 * 1000; // run 4 more minutes
+                                                          this->auto_off_timer_ = millis() + 5 * 60 * 1000; // run 5 more minutes
                                                           this->auto_off_ = true;
                                                         }
 #endif
@@ -610,14 +611,12 @@ namespace esphome
     {
       std::vector<uint8_t> payload = {0};
       send_cmd(cmd_hood_status, payload, "state", false);
-      this->status_pending_++;
     }
 
     void PurelinePro::request_extrastatusupdate()
     {
       std::vector<uint8_t> payload = {0};
       send_cmd(cmd_hood_extrastatus, payload, "state", false);
-      this->extraStatus_pending_++;
     }
 
     void PurelinePro::send_cmd(int command_id, const std::vector<uint8_t> &args, const std::string &msg, bool log)
@@ -629,6 +628,15 @@ namespace esphome
       }
       payload += "]";
 
+      switch (command_id)
+      {
+      case cmd_hood_status:
+        this->status_pending_++;
+        break;
+      case cmd_hood_extrastatus:
+        this->extraStatus_pending_++;
+        break;
+      }
       send_cmd(payload, msg, log);
     }
 
@@ -661,6 +669,7 @@ namespace esphome
 
     void PurelinePro::recieved_answer(uint8_t *pData, uint16_t length)
     {
+      this->pending_request_--;
       if (length && (pData[0] == '[') && (pData[length - 1] == ']'))
       {
         std::string_view sv(reinterpret_cast<const char *>(pData), length);
@@ -668,15 +677,17 @@ namespace esphome
         ESP_LOGD(UARTTAG, "Received Reply: %.*s", static_cast<int>(sv.length()), sv.data());
         handleAck(sv);
       }
-      else if (length == sizeof(Packet))
+      else if (this->status_pending_ && (length == sizeof(Packet)))
       {
         ESP_LOGD(UARTTAG, "Received Status");
-        handleStatus((Packet *)(pData)); // reinterpret_cast
+        this->status_pending_--;
+        handleStatus(reinterpret_cast<Packet *>(pData)); // reinterpret_cast
       }
-      else if (length == sizeof(ExtraPacket))
+      else if (this->extraStatus_pending_ && (length == sizeof(ExtraPacket)))
       {
         ESP_LOGD(UARTTAG, "Received ExtraStatus");
-        handleExtraStatus((ExtraPacket *)(pData)); // reinterpret_cast
+        this->extraStatus_pending_--;
+        handleExtraStatus(reinterpret_cast<ExtraPacket *>(pData)); // reinterpret_cast
       }
       else
       {
@@ -696,7 +707,6 @@ namespace esphome
         }
         ESP_LOGI(UARTTAG, "%s", hexStream.str().c_str());
       }
-      this->pending_request_--;
     }
 
     void PurelinePro::dump_config()

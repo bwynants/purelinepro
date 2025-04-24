@@ -112,6 +112,13 @@ namespace esphome
       return flag7;
     }
 
+    std::string ExtraPacket::getVersion() const
+    {
+      std::stringstream vStream;
+      vStream << major << '.' << minor << '.' << patch;
+      return vStream.str();
+    }
+
     void ExtraPacket::diff(const ExtraPacket *r) const
     {
       if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag4 != r->flag4) || (this->flag5 != r->flag5) || (this->flag6 != r->flag6) || (this->flag7 != r->flag7))
@@ -120,38 +127,41 @@ namespace esphome
         ESP_LOGI(TAG, "GreaseTimer: %d", r->getGreaseTimer());
       if (this->getRecirculate() != r->getRecirculate())
         ESP_LOGI(TAG, "Recirculate: %d", r->getRecirculate());
+      if (this->major != r->major)
+        ESP_LOGI(TAG, "major 0x%02X (%d)", r->major, (int16_t)r->major);
+      if (this->minor != r->minor)
+        ESP_LOGI(TAG, "minor 0x%02X (%d)", r->minor, (int16_t)r->minor);
+      if (this->patch != r->patch)
+        ESP_LOGI(TAG, "patch 0x%02X (%d)", r->patch, (int16_t)r->patch);
+
       if (this->unknown1 != r->unknown1)
         ESP_LOGI(TAG, "unknown1 0x%04X (%d)", r->unknown1, (int16_t)r->unknown1);
       if (this->unknown2 != r->unknown2)
         ESP_LOGI(TAG, "unknown2 0x%02X (%d)", r->unknown2, (int8_t)r->unknown2);
       if (this->unknown3 != r->unknown3)
-        ESP_LOGI(TAG, "unknown6 0x%04X (%d)", r->unknown3, (int16_t)r->unknown3);
+        ESP_LOGI(TAG, "unknown3 0x%02X (%d)", r->unknown3, (int16_t)r->unknown3);
       if (this->unknown4 != r->unknown4)
         ESP_LOGI(TAG, "unknown4 0x%04X (%d)", r->unknown4, (int16_t)r->unknown4);
       if (this->unknown5 != r->unknown5)
         ESP_LOGI(TAG, "unknown5 0x%08X (%d)", r->unknown5, (int16_t)r->unknown5);
-      if (this->unknown6 != r->unknown6)
-        ESP_LOGI(TAG, "unknown5 0x%08X (%d)", r->unknown6, (int16_t)r->unknown6);
 #if 1
       if (this->unknown1 != 0x6419)
         ESP_LOGI(TAG, "unknown1 0x%04X (%d)", this->unknown1, (int16_t)this->unknown1);
       if (this->unknown2 != 0x0ff)
         ESP_LOGI(TAG, "unknown2 0x%02X (%d)", this->unknown2, (int8_t)this->unknown2);
-      if (this->unknown3 != 0x03)
-        ESP_LOGI(TAG, "unknown3 0x%04X (%d)", this->unknown3, (int16_t)this->unknown3);
-      if (this->unknown4 != 0x02)
+      if (this->unknown3 != 0x00)
+        ESP_LOGI(TAG, "unknown3 0x%02X (%d)", this->unknown3, (int16_t)this->unknown3);
+      if (this->unknown4 != 0x0000)
         ESP_LOGI(TAG, "unknown4 0x%04X (%d)", this->unknown4, (int16_t)this->unknown4);
       if (this->unknown5 != 0x0000)
         ESP_LOGI(TAG, "unknown5 0x%04X (%d)", this->unknown5, (int16_t)this->unknown5);
-      if (this->unknown6 != 0x0000)
-        ESP_LOGI(TAG, "unknown5 0x%04X (%d)", this->unknown6, (int16_t)this->unknown6);
 #endif
     }
     bool operator==(const ExtraPacket &l, const ExtraPacket &r)
     {
       return (l.unknown1 == r.unknown1) && (l.unknown2 == r.unknown2) &&
              (l.flag0 == r.flag0) && (l.flag1 == r.flag1) && (l.flag2 == r.flag2) && (l.flag3 == r.flag3) && (l.flag4 == r.flag4) && (l.flag5 == r.flag5) && (l.flag6 == r.flag6) && (l.flag7 == r.flag7) &&
-             (l.greasetime == r.greasetime) && (l.unknown3 == r.unknown3) && (l.unknown4 == r.unknown4) && (l.unknown5 == r.unknown5) && (l.unknown6 == r.unknown6);
+             (l.greasetime == r.greasetime) && (l.unknown3 == r.unknown3) && (l.major == r.major) && (l.minor == r.minor) && (l.patch == r.patch) && (l.unknown4 == r.unknown4) && (l.unknown5 == r.unknown5);
     }
 
   } // namespace purelinepro
