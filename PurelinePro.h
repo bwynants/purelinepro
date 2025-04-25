@@ -1,14 +1,6 @@
 #pragma once
 
 #define USE_CMDS
-//#define FULL_VERSION
-// #undef USE_SENSOR
-// #undef USE_FAN
-// #undef USE_LIGHT
-// #undef USE_BUTTON
-// #undef USE_SWITCH
-// #undef USE_BINARY_SENSOR
-// #undef USE_TIME
 
 #ifndef USE_ESP32
 #define USE_ESP32
@@ -58,9 +50,31 @@ namespace esphome
 
     namespace espbt = esphome::esp32_ble_tracker;
 
+    const int cmd_power = 10;
+    const int cmd_light_on_ambi = 15;
+    const int cmd_light_on_white = 16;
+    const int cmd_light_brightness = 21;
+    const int cmd_light_colortemp = 22;
+
+    const int cmd_reset_grease = 23;
+    const int cmd_fan_recirculate = 25;
+
+    const int cmd_fan_speed = 28;
+    const int cmd_fan_state = 29;
+    const int cmd_light_off = 36;
+
+    const int cmd_fan_default = 41;
+    const int cmd_light_default = 42;
+
+    const int cmd_hood_status = 400;
+    const int cmd_hood_status402 = 402;
+    const int cmd_hood_status403 = 403;
+    const int cmd_hood_status404 = 404;
+
     class PurelinePro : public esphome::ble_client::BLEClientNode, public PollingComponent
     {
-    public:
+  
+      public:
       void setup() override;
       void loop() override;
       void update() override;
@@ -95,6 +109,8 @@ namespace esphome
 #ifdef USE_SENSOR
       SUB_SENSOR(timer)
       SUB_SENSOR(greasetimer)
+      SUB_SENSOR(operating_hours_led)
+      SUB_SENSOR(operating_hours_fan)
 #else
     public:
       void set_timer_sensor(sensor::Sensor *sensor) {}
@@ -149,14 +165,18 @@ namespace esphome
 
     public:
       void handleSensors(const Packet *pkt);
-      void handleSensors(const ExtraPacket *pkt);
-      void handleSwitch(const ExtraPacket *pkt);
+      void handleSensors(const Packet402 *pkt);
+      void handleSensors(const Packet403 *pkt);
+      void handleSensors(const Packet404 *pkt);
+      void handleSwitch(const Packet402 *pkt);
       void handleLight(const Packet *pkt);
       void handleFan(const Packet *pkt);
 
       void handleAck(std::string_view ack);
       void handleStatus(const Packet *pkt);
-      void handleExtraStatus(const ExtraPacket *pkt);
+      void handleStatus402(const Packet402 *pkt);
+      void handleStatus403(const Packet403 *pkt);
+      void handleStatus404(const Packet404 *pkt);
 
     public:
       void send_cmd(int command_id, const std::vector<uint8_t> &args, const std::string &msg, bool log = true);
@@ -165,27 +185,32 @@ namespace esphome
     protected:
       void recieved_answer(uint8_t *data, uint16_t size);
 
-      void request_statusupdate();
-      void request_extrastatusupdate();
+      void request_status_update();
+      void request_status40x_update();
 
     protected:
-      uint16_t rx_char_handle_;
-      uint16_t tx_char_handle_;
+      uint16_t rx_char_handle_ = 0;
+      uint16_t tx_char_handle_ = 0;
 
       // last packet received
       std::unique_ptr<struct Packet> packet_ = nullptr;
-      std::unique_ptr<struct ExtraPacket> extraPacket_ = nullptr;
+      std::unique_ptr<struct Packet402> packet402_ = nullptr;
+      std::unique_ptr<struct Packet403> packet403_ = nullptr;
+      std::unique_ptr<struct Packet404> packet404_ = nullptr;
 
       // for timeout on request
       uint32_t last_request_ = millis();
       // how many cmd's ae outstanding?
       uint32_t pending_request_ = 0;
 
-      // during a status_pending_ home assistant is in charge.....
-      // otherwise het hood is in charge
       uint32_t status_pending_ = 0;
-      uint32_t extraStatus_pending_ = 0;
-      uint32_t extraStatus_count_ = 0;
+      uint32_t status40x_pending_ = 0;
+      // what cmd did we send
+      int status40x_cmd = cmd_hood_status402;
+      // counter for delaying the 40x cmd's
+      uint32_t status40x_count_ = 0;
+      uint32_t status40x_delay_ = 0;
+      
 
       // generic action timer
       uint32_t timer_ = millis();
