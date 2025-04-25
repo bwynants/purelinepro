@@ -31,7 +31,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(): cv.declare_id(PurelinePro),
         cv.GenerateID(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
     }
-).extend(cv.polling_component_schema("500ms")).extend(ble_client.BLE_CLIENT_SCHEMA)
+).extend(cv.polling_component_schema("1s")).extend(ble_client.BLE_CLIENT_SCHEMA)
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
