@@ -185,9 +185,9 @@ namespace esphome
 #endif
     }
 
-    void PurelinePro::handleStatus(const Packet *pkt)
+    void PurelinePro::handleStatus400(const Packet *pkt)
     {
-      ESP_LOGD(TAG, "handleStatus");
+      ESP_LOGD(TAG, "handleStatus400");
       if (!pkt)
       {
         ESP_LOGE(TAG, "Invalid packet");
@@ -481,9 +481,9 @@ namespace esphome
 #endif
                                                       } });
       }
-      if (this->timedoff_button_)
+      if (this->delayedoff_button_)
       {
-        this->timedoff_button_->add_on_press_callback([this]()
+        this->delayedoff_button_->add_on_press_callback([this]()
                                                       {
 #ifdef USE_LIGHT
                                                         if (this->extractor_light_->state_)
@@ -747,7 +747,7 @@ namespace esphome
       {
         ESP_LOGD(UARTTAG, "Received Status");
         this->status_pending_--;
-        handleStatus(reinterpret_cast<Packet *>(pData)); // reinterpret_cast
+        handleStatus400(reinterpret_cast<Packet *>(pData)); // reinterpret_cast
       }
       else if (this->status40x_pending_ && (this->status40x_cmd == cmd_hood_status402) && (length == sizeof(Packet402)))
       {
@@ -769,7 +769,7 @@ namespace esphome
         this->status40x_pending_--;
         handleStatus404(reinterpret_cast<Packet404 *>(pData)); // reinterpret_cast
         this->status40x_cmd = cmd_hood_status402;              // other 40x status next time
-        this->status40x_delay_ = 10;                           // looped, from now on less frequent updates for these timers
+        this->status40x_delay_ = 5;                           // looped, from now on less frequent updates for these timers
       }
       else
       {
@@ -807,7 +807,7 @@ namespace esphome
 #endif
 #ifdef USE_BUTTON
       LOG_BUTTON("", "power", this->power_button_);
-      LOG_BUTTON("", "timedoff", this->timedoff_button_);
+      LOG_BUTTON("", "delayedoff", this->delayedoff_button_);
       LOG_BUTTON("", "defaultlight", this->defaultlight_button_);
       LOG_BUTTON("", "defaultspeed", this->defaultspeed_button_);
       LOG_BUTTON("", "resetgrease", this->resetgrease_button_);
