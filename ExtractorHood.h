@@ -53,7 +53,6 @@ namespace esphome
       uint16_t unknown4;
       uint16_t unknown5;
     };
-
     inline bool operator!=(const Packet &lhs, const Packet &rhs) { return !(lhs == rhs); }
 
     class __attribute__((__packed__)) Packet402
@@ -74,7 +73,7 @@ namespace esphome
 
     private:
       uint16_t unknown1;
-      unsigned char flag0 : 1;
+      unsigned char flag0 : 1; // recirculate
       unsigned char flag1 : 1;
       unsigned char flag2 : 1;
       unsigned char flag3 : 1;
@@ -91,16 +90,17 @@ namespace esphome
       uint32_t unknown4;
       uint32_t unknown5;
     };
-
     inline bool operator!=(const Packet402 &lhs, const Packet402 &rhs) { return !(lhs == rhs); }
 
     class __attribute__((__packed__)) Packet403
     {
     public:
       // minutes the leds have been on
+      uint32_t getAnotherTimer() const;
+      uint32_t getRecirculateTimer() const;
       uint32_t getFanTimer() const;
-      uint32_t getLastFanSpeed() const;
-
+      uint8_t getLastFanSpeed() const;
+ 
       // print the differences between both packets
       void diff(const Packet403 *r) const;
 
@@ -108,15 +108,14 @@ namespace esphome
       friend bool operator==(const Packet403 &l, const Packet403 &r);
 
     private:
-      uint32_t unknown1;
-      uint32_t unknown2;
-      uint16_t unknown3;
+      uint16_t unknown1;
+      uint32_t anotherTimer; // ??
+      uint32_t recirculateTimer; // ?
       uint32_t fantimer;
       uint8_t lastfanspeed;
-      uint8_t unknown5;
-      uint32_t unknown6;
+      uint8_t unknown3;
+      uint32_t unknown4;
     };
-
     inline bool operator!=(const Packet403 &lhs, const Packet403 &rhs) { return !(lhs == rhs); }
 
     class __attribute__((__packed__)) Packet404
@@ -140,7 +139,6 @@ namespace esphome
       uint8_t unknown5;
       uint16_t unknown6;
     };
-
     inline bool operator!=(const Packet404 &lhs, const Packet404 &rhs) { return !(lhs == rhs); }
 
     uint16_t swapEndian(uint16_t value);

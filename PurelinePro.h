@@ -73,8 +73,8 @@ namespace esphome
 
     class PurelinePro : public esphome::ble_client::BLEClientNode, public PollingComponent
     {
-  
-      public:
+
+    public:
       void setup() override;
       void loop() override;
       void update() override;
@@ -92,9 +92,6 @@ namespace esphome
 
     protected:
       esphome::purelinepro::ExtractorLight *extractor_light_;
-#else
-    public:
-      void set_light(esphome::Component *component) {}
 #endif
 #ifdef USE_FAN
     public:
@@ -102,52 +99,30 @@ namespace esphome
 
     protected:
       esphome::purelinepro::ExtractorFan *extractor_fan_;
-#else
-    public:
-      void set_fan(esphome::Component *component) {}
 #endif
 #ifdef USE_SENSOR
-      SUB_SENSOR(timer)
-      SUB_SENSOR(greasetimer)
+      SUB_SENSOR(off_timer)
+      SUB_SENSOR(boost_timer)
+      SUB_SENSOR(grease_timer)
       SUB_SENSOR(operating_hours_led)
       SUB_SENSOR(operating_hours_fan)
-#else
-    public:
-      void set_timer_sensor(sensor::Sensor *sensor) {}
-      void set_greasetimer_sensor(sensor::Sensor *sensor) {}
 #endif
 #ifdef USE_BINARY_SENSOR
       // fan boost active
       SUB_BINARY_SENSOR(boost)
       // shutting down in progress
       SUB_BINARY_SENSOR(stopping)
-#else
-    public:
-      void set_boost_binary_sensor(binary_sensor::BinarySensor *binary_sensor) {}
-      void set_stopping_binary_sensor(binary_sensor::BinarySensor *binary_sensor) {}
-
 #endif
 #ifdef USE_BUTTON
       SUB_BUTTON(power)
-      SUB_BUTTON(timedoff)
-      SUB_BUTTON(defaultlight)
-      SUB_BUTTON(defaultspeed)
-      SUB_BUTTON(resetgrease)
-#else
-    public:
-      void set_power_button(button::Button *button) {}
-      void set_timedoff_button(button::Button *button) {}
-      void set_defaultlight_button(button::Button *button) {}
-      void set_defaultspeed_button(button::Button *button) {}
-      void set_resetgrease_button(button::Button *button) {}
+      SUB_BUTTON(delayed_off)
+      SUB_BUTTON(set_default_light)
+      SUB_BUTTON(set_default_speed)
+      SUB_BUTTON(reset_grease)
 #endif
 #ifdef USE_SWITCH
       SUB_SWITCH(recirculate)
       SUB_SWITCH(enabled)
-#else
-    public:
-      void set_recirculate_switch(switch_::Switch *s) {}
-      void set_enabled_switch(switch_::Switch *s) {}
 #endif
 
 #ifdef USE_TIME
@@ -173,7 +148,7 @@ namespace esphome
       void handleFan(const Packet *pkt);
 
       void handleAck(std::string_view ack);
-      void handleStatus(const Packet *pkt);
+      void handleStatus400(const Packet *pkt);
       void handleStatus402(const Packet402 *pkt);
       void handleStatus403(const Packet403 *pkt);
       void handleStatus404(const Packet404 *pkt);
@@ -210,7 +185,6 @@ namespace esphome
       // counter for delaying the 40x cmd's
       uint32_t status40x_count_ = 0;
       uint32_t status40x_delay_ = 0;
-      
 
       // generic action timer
       uint32_t timer_ = millis();
