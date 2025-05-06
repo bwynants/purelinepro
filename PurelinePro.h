@@ -73,8 +73,8 @@ namespace esphome
 
     class PurelinePro : public esphome::ble_client::BLEClientNode, public PollingComponent
     {
-  
-      public:
+
+    public:
       void setup() override;
       void loop() override;
       void update() override;
@@ -101,8 +101,9 @@ namespace esphome
       esphome::purelinepro::ExtractorFan *extractor_fan_;
 #endif
 #ifdef USE_SENSOR
-      SUB_SENSOR(timer)
-      SUB_SENSOR(greasetimer)
+      SUB_SENSOR(off_timer)
+      SUB_SENSOR(boost_timer)
+      SUB_SENSOR(grease_timer)
       SUB_SENSOR(operating_hours_led)
       SUB_SENSOR(operating_hours_fan)
 #endif
@@ -114,10 +115,10 @@ namespace esphome
 #endif
 #ifdef USE_BUTTON
       SUB_BUTTON(power)
-      SUB_BUTTON(delayedoff)
-      SUB_BUTTON(defaultlight)
-      SUB_BUTTON(defaultspeed)
-      SUB_BUTTON(resetgrease)
+      SUB_BUTTON(delayed_off)
+      SUB_BUTTON(set_default_light)
+      SUB_BUTTON(set_default_speed)
+      SUB_BUTTON(reset_grease)
 #endif
 #ifdef USE_SWITCH
       SUB_SWITCH(recirculate)
@@ -184,7 +185,6 @@ namespace esphome
       // counter for delaying the 40x cmd's
       uint32_t status40x_count_ = 0;
       uint32_t status40x_delay_ = 0;
-      
 
       // generic action timer
       uint32_t timer_ = millis();

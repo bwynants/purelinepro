@@ -15,10 +15,10 @@ from .. import PurelinePro, purelinepro_ns, CONF_PurelinePro_ID
 
 ExtractorButton = purelinepro_ns.class_("ExtractorButton", button.Button, cg.Component)
 
-CONF_DELAYEDOFF = "delayedoff"
-CONF_RESETGREASE = "resetgrease"
-CONF_DEFAULTLIGHT = "defaultlight"
-CONF_DEFAULTSPEED = "defaultspeed"
+CONF_DELAYEDOFF = "delayed_off"
+CONF_RESETGREASE = "reset_grease"
+CONF_DEFAULTLIGHT = "set_default_light"
+CONF_DEFAULTSPEED = "set_default_speed"
 
 TYPES = [
     CONF_POWER,

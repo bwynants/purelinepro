@@ -14,13 +14,15 @@ from esphome.const import (
 
 from .. import PurelinePro, purelinepro_ns, CONF_PurelinePro_ID
 
-CONF_TIMER="timer"
-CONF_GREASETIMER="greasetimer"
+CONF_OFFTIMER="off_timer"
+CONF_BOOSTTIMER="boost_timer"
+CONF_GREASETIMER="grease_timer"
 CONF_OPERATINGHOURSLED="operating_hours_led"
 CONF_OPERATINGHOURSFAN="operating_hours_fan"
 
 TYPES = [
-    CONF_TIMER,
+    CONF_OFFTIMER,
+    CONF_BOOSTTIMER,
     CONF_GREASETIMER,
     CONF_OPERATINGHOURSLED,
     CONF_OPERATINGHOURSFAN,
@@ -30,7 +32,14 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(CONF_PurelinePro_ID): cv.use_id(PurelinePro),
-            cv.Optional(CONF_TIMER): sensor.sensor_schema(  
+            cv.Optional(CONF_OFFTIMER): sensor.sensor_schema(  
+                            unit_of_measurement=UNIT_SECOND,
+                            icon=ICON_TIMER,
+                            accuracy_decimals=0,
+                            device_class=DEVICE_CLASS_DURATION,
+                            state_class=STATE_CLASS_TOTAL,
+                ),
+            cv.Optional(CONF_BOOSTTIMER): sensor.sensor_schema(  
                             unit_of_measurement=UNIT_SECOND,
                             icon=ICON_TIMER,
                             accuracy_decimals=0,

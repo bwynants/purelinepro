@@ -24,7 +24,7 @@ namespace esphome
       ESP_LOGD(TAG, "handleSensors");
       // we have our own timer and the hood has a timer, combine those in reporting to HA
       // work with the timer....
-      uint32_t auto_off_timer = pkt->getTimer();
+      uint32_t auto_off_timer = pkt->getBoost() ? 0 : pkt->getTimer();
 
       if (this->auto_off_ && (auto_off_timer > 0))
       {
@@ -53,10 +53,15 @@ namespace esphome
         }
       }
 #ifdef USE_SENSOR
-      if (this->timer_sensor_)
+      if (this->off_timer_sensor_)
       {
-        if (this->timer_sensor_->state != auto_off_timer)
-          this->timer_sensor_->publish_state(auto_off_timer);
+        if (!this->off_timer_sensor_->has_state() || (this->off_timer_sensor_->state != auto_off_timer))
+          this->off_timer_sensor_->publish_state(auto_off_timer);
+      }
+      if (this->boost_timer_sensor_)
+      {
+        if (!this->boost_timer_sensor_->has_state() || (this->boost_timer_sensor_->state != (pkt->getBoost() ? pkt->getTimer() : 0)))
+          this->boost_timer_sensor_->publish_state(pkt->getBoost() ? pkt->getTimer() : 0);
       }
 #endif
 #ifdef USE_BINARY_SENSOR
@@ -77,10 +82,10 @@ namespace esphome
     {
       ESP_LOGD(TAG, "handleSensors");
 #ifdef USE_SENSOR
-      if (this->greasetimer_sensor_)
+      if (this->grease_timer_sensor_)
       {
-        if (this->greasetimer_sensor_->state != pkt->getGreaseTimer())
-          this->greasetimer_sensor_->publish_state(pkt->getGreaseTimer());
+        if (this->grease_timer_sensor_->state != pkt->getGreaseTimer())
+          this->grease_timer_sensor_->publish_state(pkt->getGreaseTimer());
       }
 #endif
     }
@@ -364,18 +369,6 @@ namespace esphome
 
     void PurelinePro::setup()
     {
-#ifdef USE_SENSOR
-      // if (this->timer_sensor_)
-      //   this->timer_sensor_->publish_state(0);
-      // if (this->greasetimer_sensor_)
-      //   this->greasetimer_sensor_->publish_state(20);// default is 20 hours
-#endif
-#ifdef USE_BINARY_SENSOR
-      // if (this->boost_binary_sensor_)
-      //   this->boost_binary_sensor_->publish_state(0);
-      // if (this->stopping_binary_sensor_)
-      //   this->stopping_binary_sensor_->publish_state(0);
-#endif
 #ifdef USE_FAN
       if (this->extractor_fan_)
       {
@@ -481,38 +474,38 @@ namespace esphome
 #endif
                                                       } });
       }
-      if (this->delayedoff_button_)
+      if (this->delayed_off_button_)
       {
-        this->delayedoff_button_->add_on_press_callback([this]()
-                                                      {
-#ifdef USE_LIGHT
-                                                        if (this->extractor_light_->state_)
+        this->delayed_off_button_->add_on_press_callback([this]()
                                                         {
-                                                          this->extractor_light_->raw_brightness_ = 70;
-                                                          this->extractor_light_->raw_temp_ = 255;
-                                                          this->extractor_light_->publish(this->extractor_light_->state_, this->extractor_light_->raw_brightness_, this->extractor_light_->raw_temp_);
-                                                        }
+#ifdef USE_LIGHT
+                                                          if (this->extractor_light_->state_)
+                                                          {
+                                                            this->extractor_light_->raw_brightness_ = 70;
+                                                            this->extractor_light_->raw_temp_ = 255;
+                                                            this->extractor_light_->publish(this->extractor_light_->state_, this->extractor_light_->raw_brightness_, this->extractor_light_->raw_temp_);
+                                                          }
 #endif
 #ifdef USE_FAN
-                                                        if (this->extractor_fan_->state && (this->extractor_fan_->speed > 25))
-                                                        {
-                                                          ESP_LOGI(TAG, "reducing fanspeed %d -> %d", this->extractor_fan_->speed, 25);
-                                                          this->extractor_fan_->speed = 25;
-                                                          this->extractor_fan_->publish_state();
-                                                        }
-                                                        if (this->extractor_fan_->state)
-                                                        {
-                                                          ESP_LOGI(TAG, "auto_off_timer_ started");
+                                                          if (this->extractor_fan_->state && (this->extractor_fan_->speed > 25))
+                                                          {
+                                                            ESP_LOGI(TAG, "reducing fanspeed %d -> %d", this->extractor_fan_->speed, 25);
+                                                            this->extractor_fan_->speed = 25;
+                                                            this->extractor_fan_->publish_state();
+                                                          }
+                                                          if (this->extractor_fan_->state)
+                                                          {
+                                                            ESP_LOGI(TAG, "auto_off_timer_ started");
 
-                                                          this->auto_off_timer_ = millis() + 5 * 60 * 1000; // run 5 more minutes
-                                                          this->auto_off_ = true;
-                                                        }
+                                                            this->auto_off_timer_ = millis() + 5 * 60 * 1000; // run 5 more minutes
+                                                            this->auto_off_ = true;
+                                                          }
 #endif
-                                                      });
+                                                        });
       }
-      if (this->defaultlight_button_)
+      if (this->set_default_light_button_)
       {
-        this->defaultlight_button_->add_on_press_callback([this]()
+        this->set_default_light_button_->add_on_press_callback([this]()
                                                           {
           if (this->node_state == espbt::ClientState::ESTABLISHED)
           {
@@ -523,9 +516,9 @@ namespace esphome
 #endif
           } });
       }
-      if (this->defaultspeed_button_)
+      if (this->set_default_speed_button_)
       {
-        this->defaultspeed_button_->add_on_press_callback([this]()
+        this->set_default_speed_button_->add_on_press_callback([this]()
                                                           {
           if (this->node_state == espbt::ClientState::ESTABLISHED)
           {
@@ -536,9 +529,9 @@ namespace esphome
 #endif
           } });
       }
-      if (this->resetgrease_button_)
+      if (this->reset_grease_button_)
       {
-        this->resetgrease_button_->add_on_press_callback([this]()
+        this->reset_grease_button_->add_on_press_callback([this]()
                                                          {
           if (this->node_state == espbt::ClientState::ESTABLISHED)
           {
@@ -769,7 +762,7 @@ namespace esphome
         this->status40x_pending_--;
         handleStatus404(reinterpret_cast<Packet404 *>(pData)); // reinterpret_cast
         this->status40x_cmd = cmd_hood_status402;              // other 40x status next time
-        this->status40x_delay_ = 5;                           // looped, from now on less frequent updates for these timers
+        this->status40x_delay_ = 5;                            // looped, from now on less frequent updates for these timers
       }
       else
       {
@@ -807,18 +800,19 @@ namespace esphome
 #endif
 #ifdef USE_BUTTON
       LOG_BUTTON("", "power", this->power_button_);
-      LOG_BUTTON("", "delayedoff", this->delayedoff_button_);
-      LOG_BUTTON("", "defaultlight", this->defaultlight_button_);
-      LOG_BUTTON("", "defaultspeed", this->defaultspeed_button_);
-      LOG_BUTTON("", "resetgrease", this->resetgrease_button_);
+      LOG_BUTTON("", "delayed_off", this->delayed_off_button_);
+      LOG_BUTTON("", "default_light", this->set_default_light_button_);
+      LOG_BUTTON("", "default_speed", this->set_default_speed_button_);
+      LOG_BUTTON("", "reset_grease", this->reset_grease_button_);
 #endif
 #ifdef USE_SWITCH
       LOG_SWITCH("", "recirculate", this->recirculate_switch_);
       LOG_SWITCH("", "enabled", this->enabled_switch_);
 #endif
 #ifdef USE_SENSOR
-      LOG_SENSOR(TAG, "timer", this->timer_sensor_);
-      LOG_SENSOR(TAG, "greasetimer", this->greasetimer_sensor_);
+      LOG_SENSOR(TAG, "off_timer", this->off_timer_sensor_);
+      LOG_SENSOR(TAG, "boost_timer", this->boost_timer_sensor_);
+      LOG_SENSOR(TAG, "grease_timer", this->grease_timer_sensor_);
       LOG_SENSOR(TAG, "operating_hours_led", this->operating_hours_led_sensor_);
       LOG_SENSOR(TAG, "operating_hours_fan", this->operating_hours_fan_sensor_);
 #endif
