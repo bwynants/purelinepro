@@ -3,6 +3,7 @@
 
 #ifdef USE_ESP32
 #include "esphome/core/log.h"
+#include "esphome/core/application.h"
 
 namespace esphome
 {
@@ -318,7 +319,8 @@ namespace esphome
 
     void PurelinePro::loop()
     {
-      if (this->pending_request_ && (millis() > (last_request_ + 15 * 1000)))
+      uint32_t now = App.get_loop_component_start_time();
+      if (this->pending_request_ && (now > (this->last_request_ + 15 * 1000)))
       {
         // timeout....
         ESP_LOGW(TAG, "Timeout: %d", this->pending_request_);
@@ -327,11 +329,11 @@ namespace esphome
         this->parent()->set_enabled(true);
       }
 
-      if (millis() > (this->timer_ + 1 * 1000))
+      if (now > (this->timer_ + 1 * 1000))
       {
         // some timer
         ESP_LOGV(TAG, "connected : %s %d", (this->node_state == espbt::ClientState::ESTABLISHED) ? "yes" : "no", this->pending_request_);
-        timer_ = millis();
+        this->timer_ = now;
       }
     }
 
