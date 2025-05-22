@@ -141,12 +141,9 @@ sensor:
 binary_sensor:
   - platform: purelinepro
     purelinepro_id: novydampkap
-    boost:
-      disabled_by_default: true
-      name: Boost
-    stopping:
-      disabled_by_default: true
-      name: Stopping
+    cleangrease:
+      disabled_by_default: false
+      name: Clean Grease
 
 time:
   - platform: homeassistant

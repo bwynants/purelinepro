@@ -108,10 +108,8 @@ namespace esphome
       SUB_SENSOR(operating_hours_fan)
 #endif
 #ifdef USE_BINARY_SENSOR
-      // fan boost active
-      SUB_BINARY_SENSOR(boost)
-      // shutting down in progress
-      SUB_BINARY_SENSOR(stopping)
+      // grease filter must be cleaned
+      SUB_BINARY_SENSOR(cleangrease)
 #endif
 #ifdef USE_BUTTON
       SUB_BUTTON(power)
@@ -194,7 +192,7 @@ namespace esphome
       bool auto_off_ = false;
     };
 
-  } // namespace am43
+  } // namespace purelinepro
 } // namespace esphome
 
 #endif

@@ -36,7 +36,10 @@ namespace esphome
     {
       return flag1 ? swapEndian(countDown) : 0;
     }
-
+    bool Packet::getCleanGreaseFilter() const
+    {
+      return flag8;
+    }
     bool Packet::getLightState() const
     {
       return lightmode > 0;
@@ -59,10 +62,11 @@ namespace esphome
       return fanspeed;
     }
 
+    // for debug/reverse engeneer purposes
     void Packet::diff(const Packet *r) const
     {
-      if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag4 != r->flag4) || (this->flag5 != r->flag5) || (this->flag6 != r->flag6) || (this->flag7 != r->flag7))
-        ESP_LOGI(STATUSSTAG, "flags: %d,%d,%d,%d,%d,%d,%d,%d", r->flag0, r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
+      if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag8 != r->flag8))
+        ESP_LOGI(STATUSSTAG, "flags: 0:%d, 1:%d, 2:%d, 8:%d", r->flag0, r->flag1, r->flag2, r->flag8);
       if ((this->fanspeed != r->fanspeed) || (this->lightmode != r->lightmode) || (this->brightness != r->brightness) || (this->colortemp != r->colortemp))
         ESP_LOGI(STATUSSTAG, "speed: %d lightmode: %s, b:%d t:%d", r->fanspeed, lightMode[r->lightmode].c_str(), r->brightness, r->colortemp);
       if (this->getTimer() != r->getTimer())
@@ -79,8 +83,12 @@ namespace esphome
       if (this->unknown5 != r->unknown5)
         ESP_LOGI(STATUSSTAG, "unknown5 0x%04X (%d)", r->unknown5, r->unknown5);
 #if 1
+      if (r->flag3 || r->flag4 || r->flag5 || r->flag6 || r->flag7)
+        ESP_LOGI(STATUSSTAG, "flags 3-7: %d,%d,%d,%d,%d", r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
+      if (r->flag9 || r->flag10 || r->flag11 || r->flag12 || r->flag13 || r->flag14 || r->flag15)
+        ESP_LOGI(STATUSSTAG, "flags 9-15: %d,%d,%d,%d,%d,%d,%d", r->flag9, r->flag10, r->flag11, r->flag12, r->flag13, r->flag14, r->flag15);
       if (r->unknown1 != 0x00)
-        ESP_LOGI(STATUSSTAG, "unknown1 0x%04X (%d)", r->unknown1, r->unknown1);
+        ESP_LOGI(STATUSSTAG, "unknown1 0x%02X (%d)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0xFF)
         ESP_LOGI(STATUSSTAG, "unknown2 0x%02X (%d)", r->unknown2, r->unknown2);
       if (r->unknown3 != 0x0100)
@@ -90,13 +98,6 @@ namespace esphome
       if (r->unknown5 != 0x0000)
         ESP_LOGI(STATUSSTAG, "unknown5 0x%04X (%d)", r->unknown5, r->unknown5);
 #endif
-    }
-
-    bool operator==(const Packet &l, const Packet &r)
-    {
-      return (l.fanspeed == r.fanspeed) && (l.lightmode == r.lightmode) && (l.brightness == r.brightness) && (l.colortemp == r.colortemp) && (l.countDown == r.countDown) &&
-             (l.flag0 == r.flag0) && (l.flag1 == r.flag1) && (l.flag2 == r.flag2) && (l.flag3 == r.flag3) && (l.flag4 == r.flag4) && (l.flag5 == r.flag5) && (l.flag6 == r.flag6) && (l.flag7 == r.flag7) &&
-             (l.unknown1 == r.unknown1) && (l.unknown2 == r.unknown2) && (l.unknown3 == r.unknown3) && (l.unknown4 == r.unknown4) && (l.unknown5 == r.unknown5);
     }
 
     uint32_t Packet402::getGreaseTimer() const
@@ -118,8 +119,8 @@ namespace esphome
 
     void Packet402::diff(const Packet402 *r) const
     {
-      if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag4 != r->flag4) || (this->flag5 != r->flag5) || (this->flag6 != r->flag6) || (this->flag7 != r->flag7))
-        ESP_LOGI(STATUSSTAG, "402 flags: %d,%d,%d,%d,%d,%d,%d,%d;", r->flag0, r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
+      if (this->flag0 != r->flag0)
+        ESP_LOGI(STATUSSTAG, "flags 402: 0:%d", r->flag0);
       if (this->getGreaseTimer() != r->getGreaseTimer())
         ESP_LOGI(STATUSSTAG, "GreaseTimer: %d", r->getGreaseTimer());
       if (this->getRecirculate() != r->getRecirculate())
@@ -144,6 +145,8 @@ namespace esphome
       if (this->unknown5 != r->unknown5)
         ESP_LOGI(STATUSSTAG, "402 unknown5 0x%08X (%d)", r->unknown5, r->unknown5);
 #if 1
+      if (r->flag1 || r->flag2 || r->flag3 || r->flag4 || r->flag5 || r->flag6 || r->flag7)
+        ESP_LOGI(STATUSSTAG, "404 flags 1-7: %d,%d,%d,%d,%d,%d,%d", r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
       if (r->unknown1 != 0x6419)
         ESP_LOGI(STATUSSTAG, "402 unknown1 0x%04X (%d)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0x0ff)
@@ -155,13 +158,6 @@ namespace esphome
       if (r->unknown5 != 0x0000)
         ESP_LOGI(STATUSSTAG, "402 unknown5 0x%04X (%d)", r->unknown5, r->unknown5);
 #endif
-    }
-
-    bool operator==(const Packet402 &l, const Packet402 &r)
-    {
-      return (l.unknown1 == r.unknown1) && (l.unknown2 == r.unknown2) &&
-             (l.flag0 == r.flag0) && (l.flag1 == r.flag1) && (l.flag2 == r.flag2) && (l.flag3 == r.flag3) && (l.flag4 == r.flag4) && (l.flag5 == r.flag5) && (l.flag6 == r.flag6) && (l.flag7 == r.flag7) &&
-             (l.greasetime == r.greasetime) && (l.unknown3 == r.unknown3) && (l.major == r.major) && (l.minor == r.minor) && (l.patch == r.patch) && (l.unknown4 == r.unknown4) && (l.unknown5 == r.unknown5);
     }
 
     uint32_t Packet403::getAnotherTimer() const
@@ -197,22 +193,18 @@ namespace esphome
 
       if (this->unknown1 != r->unknown1)
         ESP_LOGI(STATUSSTAG, "403 unknown1 0x%04X (%d)", r->unknown1, r->unknown1);
+      if (this->unknown2 != r->unknown2)
+        ESP_LOGI(STATUSSTAG, "403 unknown2 0x%02X (%d)", r->unknown2, r->unknown2);
       if (this->unknown3 != r->unknown3)
-        ESP_LOGI(STATUSSTAG, "403 unknown3 0x%02X (%d)", r->unknown3, r->unknown3);
-      if (this->unknown4 != r->unknown4)
-        ESP_LOGI(STATUSSTAG, "403 unknown4 0x%08X (%d)", r->unknown4, r->unknown4);
+        ESP_LOGI(STATUSSTAG, "403 unknown3 0x%08X (%d)", r->unknown3, r->unknown3);
 #if 1
       if (r->unknown1 != 0x0019)
         ESP_LOGI(STATUSSTAG, "403 unknown1 0x%04X (%d)", r->unknown1, r->unknown1);
-      if (r->unknown3 != 0x8D)
-        ESP_LOGI(STATUSSTAG, "403 unknown3 0x%02X (%d)", r->unknown3, r->unknown3);
-      if (r->unknown4 != 0x19FF6C16)
-        ESP_LOGI(STATUSSTAG, "403 unknown5 0x%08X (%d)", r->unknown4, r->unknown4);
+      if (r->unknown2 != 0x8D)
+        ESP_LOGI(STATUSSTAG, "403 unknown3 0x%02X (%d)", r->unknown2, r->unknown2);
+      if (r->unknown3 != 0x19FF6C16)
+        ESP_LOGI(STATUSSTAG, "403 unknown5 0x%08X (%d)", r->unknown3, r->unknown3);
 #endif
-    }
-    bool operator==(const Packet403 &l, const Packet403 &r)
-    {
-      return (l.unknown1 == r.unknown1); // todo
     }
 
     uint32_t Packet404::getLedTimer() const
@@ -251,10 +243,5 @@ namespace esphome
         ESP_LOGI(STATUSSTAG, "404 unknown6 0x%04X (%d)", r->unknown6, r->unknown6);
 #endif
     }
-    bool operator==(const Packet404 &l, const Packet404 &r)
-    {
-      return (l.unknown1 == r.unknown1) && (l.unknown2 == r.unknown2); // todo
-    }
-
   } // namespace purelinepro
 } // namespace esphome

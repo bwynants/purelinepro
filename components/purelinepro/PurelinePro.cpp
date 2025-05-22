@@ -66,16 +66,10 @@ namespace esphome
       }
 #endif
 #ifdef USE_BINARY_SENSOR
-      if (this->boost_binary_sensor_)
+      if (this->cleangrease_binary_sensor_)
       {
-        if (!this->boost_binary_sensor_->has_state() || (this->boost_binary_sensor_->state != pkt->getBoost()))
-          this->boost_binary_sensor_->publish_state(pkt->getBoost());
-      }
-      if (this->stopping_binary_sensor_)
-      {
-        auto state = pkt->getStopping() || this->auto_off_;
-        if (!this->stopping_binary_sensor_->has_state() || (this->stopping_binary_sensor_->state != state))
-          this->stopping_binary_sensor_->publish_state(state);
+        if (!this->cleangrease_binary_sensor_->has_state() || (this->cleangrease_binary_sensor_->state != pkt->getCleanGreaseFilter()))
+          this->cleangrease_binary_sensor_->publish_state(pkt->getCleanGreaseFilter());
       }
 #endif
     }
@@ -819,42 +813,10 @@ namespace esphome
       LOG_SENSOR(TAG, "operating_hours_fan", this->operating_hours_fan_sensor_);
 #endif
 #ifdef USE_BINARY_SENSOR
-      LOG_BINARY_SENSOR(TAG, "boost", this->boost_binary_sensor_);
-      LOG_BINARY_SENSOR(TAG, "stopping", this->stopping_binary_sensor_);
+      LOG_BINARY_SENSOR(TAG, "cleangrease", this->cleangrease_binary_sensor_);
 #endif
     }
-    /*
-        void PurelinePro::control(const CoverCall &call) {
-          if (this->node_state != espbt::ClientState::ESTABLISHED) {
-            ESP_LOGW(TAG, "[%s] Cannot send cover control, not connected", this->get_name().c_str());
-            return;
-          }
-          if (call.get_stop()) {
-            auto *packet = this->encoder_->get_stop_request();
-            auto status =
-                esp_ble_gattc_write_char(this->parent_->get_gattc_if(), this->parent_->get_conn_id(), this->char_handle_,
-                                         packet->length, packet->data, ESP_GATT_WRITE_TYPE_NO_RSP, ESP_GATT_AUTH_REQ_NONE);
-            if (status) {
-              ESP_LOGW(TAG, "[%s] Error writing stop command to device, error = %d", this->get_name().c_str(), status);
-            }
-          }
-          if (call.get_position().has_value()) {
-            auto pos = *call.get_position();
-
-            if (this->invert_position_)
-              pos = 1 - pos;
-            auto *packet = this->encoder_->get_set_position_request(100 - (uint8_t) (pos * 100));
-            auto status =
-                esp_ble_gattc_write_char(this->parent_->get_gattc_if(), this->parent_->get_conn_id(), this->char_handle_,
-                                         packet->length, packet->data, ESP_GATT_WRITE_TYPE_NO_RSP, ESP_GATT_AUTH_REQ_NONE);
-            if (status) {
-              ESP_LOGW(TAG, "[%s] Error writing set_position command to device, error = %d", this->get_name().c_str(), status);
-            }
-          }
-        }
-        */
-
-  } // namespace am43
+  } // namespace purelinepro
 } // namespace esphome
 
 #endif
