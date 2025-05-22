@@ -3,15 +3,15 @@ ESP32 Pureline Pro BLE esphome project
 
 ## Example configuration entry for finding MAC addresses, Service UUIDs, iBeacon UUIDs, and identifiers
 
-  esp32_ble_tracker:
-    on_ble_advertise:
-      - then:
-  
-  logger:
-    level: VERY_VERBOSE
+    esp32_ble_tracker:
+      on_ble_advertise:
+        - then:
+    
+    logger:
+      level: VERY_VERBOSE
 
-### how to setup the extractor hood
-
+# how to setup the extractor hood
+## generic config
 Add a reference to the code on github
 
     external_components:
@@ -43,9 +43,10 @@ add esphome ble client component and set the correct MAC address
       - mac_address: "00:00:00:00:00:00"
         id: purelinepro_ble_id
 
-configure the components
+## configure the extractor hood components
 
  the main device
+ 
     purelinepro:
       - id: novydampkap
 
@@ -86,6 +87,7 @@ configure the components
           name: "Set Default Speed"
 
  set up the fan
+ 
     fan:
       - platform: purelinepro
         purelinepro_id: novydampkap
@@ -94,6 +96,7 @@ configure the components
         restore_mode: RESTORE_DEFAULT_OFF
 
  setup the sensors
+ 
     sensor:
       - platform: purelinepro
         purelinepro_id: novydampkap
