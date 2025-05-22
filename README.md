@@ -1,15 +1,16 @@
 # purelinepro
 ESP32 Pureline Pro BLE esphome project
 
-# Example configuration entry for finding MAC addresses, Service UUIDs, iBeacon UUIDs, and identifiers
-esp32_ble_tracker:
-  on_ble_advertise:
-    - then:
+## Example configuration entry for finding MAC addresses, Service UUIDs, iBeacon UUIDs, and identifiers
 
-logger:
-  level: VERY_VERBOSE
+  esp32_ble_tracker:
+    on_ble_advertise:
+      - then:
+  
+  logger:
+    level: VERY_VERBOSE
 
-### how to setup
+### how to setup the extractor hood
 
 Add a reference to the code on github
 
