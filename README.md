@@ -1,6 +1,6 @@
-# Pureline Pro ESPHome Integration
+# Novy Pureline Pro ESPHome Integration
 
-An ESPHome custom component for controlling a **Pureline Pro extractor hood** over **Bluetooth Low Energy (BLE)** via an ESP32.
+An ESPHome custom component for controlling a **Novy Pureline Pro extractor hood** over **Bluetooth Low Energy (BLE)** via an ESP32.
 
 This integration is based on reverse-engineering the communication between the official mobile app and the extractor hood.
 
