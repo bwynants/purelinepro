@@ -17,7 +17,7 @@ from .. import PurelinePro, purelinepro_ns, CONF_PurelinePro_ID
 ExtractorFan = purelinepro_ns.class_("ExtractorFan", fan.Fan, cg.Component)
 
 CONFIG_SCHEMA = cv.All(
-    fan.FAN_SCHEMA.extend(
+    fan.fan_schema(ExtractorFan).extend(
         {
             cv.GenerateID(CONF_PurelinePro_ID): cv.use_id(PurelinePro),
             cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(ExtractorFan),
