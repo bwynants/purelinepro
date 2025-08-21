@@ -1,0 +1,16 @@
+{
+  "domain": "novy_pureline_pro",
+  "name": "Novy Pureline Pro",
+  "documentation": "https://www.home-assistant.io/integrations/novy_pureline_pro",
+  "issue_tracker": "https://github.com/home-assistant/core/issues",
+  "codeowners": [],
+  "iot_class": "local_polling",
+  "version": "0.1.0",
+  "config_flow": true,
+  "bluetooth": [
+    {
+      "connectable": true,
+      "service_uuid": "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+    }
+  ]
+}
