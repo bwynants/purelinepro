@@ -1,5 +1,5 @@
 """Light platform for Novy Pureline Pro."""
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -14,7 +14,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .pureline import PurelineProDevice
+if TYPE_CHECKING:
+    from .pureline import PurelineProDevice
 
 
 async def async_setup_entry(

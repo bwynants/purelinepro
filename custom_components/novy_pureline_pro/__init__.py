@@ -7,9 +7,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import CONF_MAC
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from importlib import import_module
 
 from .const import DOMAIN
-from .pureline import PurelineProDevice
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +20,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Novy Pureline Pro from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     mac = entry.data[CONF_MAC]
-    device = PurelineProDevice(mac)
+
+    pureline_module = await hass.async_add_executor_job(
+        import_module, ".pureline", __package__
+    )
+    device = pureline_module.PurelineProDevice(mac)
 
     async def _async_update_data():
         """Fetch data from API endpoint."""
@@ -44,7 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
     }
 
-    hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 

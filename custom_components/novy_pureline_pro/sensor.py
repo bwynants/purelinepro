@@ -1,4 +1,5 @@
 """Sensor platform for Novy Pureline Pro."""
+from typing import TYPE_CHECKING
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -8,7 +9,8 @@ from homeassistant.const import TIME_SECONDS, TIME_MINUTES, TIME_HOURS
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .pureline import PurelineProDevice
+if TYPE_CHECKING:
+    from .pureline import PurelineProDevice
 
 SENSORS = {
     "off_timer": {"name": "Off Timer", "unit": TIME_SECONDS, "icon": "mdi:timer-outline", "source": "status", "key": "timer"},

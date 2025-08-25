@@ -1,4 +1,5 @@
 """Fan platform for Novy Pureline Pro."""
+from typing import TYPE_CHECKING
 from homeassistant.components.fan import (
     FanEntity,
     SUPPORT_SET_SPEED,
@@ -10,7 +11,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .pureline import PurelineProDevice
+if TYPE_CHECKING:
+    from .pureline import PurelineProDevice
 
 
 async def async_setup_entry(
