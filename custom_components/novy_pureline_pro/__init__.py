@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import CONF_MAC
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.importlib import async_import_module
 from importlib import import_module
 
 from .const import DOMAIN
@@ -47,6 +48,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "device": device,
         "coordinator": coordinator,
     }
+
+    for platform in PLATFORMS:
+        await async_import_module(hass, f".{platform}", __package__)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
