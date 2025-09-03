@@ -82,6 +82,7 @@ ble_client:
 ```yaml
 purelinepro:
   - id: novydampkap
+    ble_client_id: purelinepro_ble_id
 ```
 
 ---
