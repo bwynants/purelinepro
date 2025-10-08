@@ -4,6 +4,8 @@
 #endif
 #include "ExtractorHood.h"
 
+#define _TRACE_UNKNOWN_BITS_ 1
+
 namespace esphome
 {
   namespace purelinepro
@@ -82,7 +84,7 @@ namespace esphome
         ESP_LOGI(STATUSSTAG, "unknown4 0x%04X (%d)", r->unknown4, r->unknown4);
       if (this->unknown5 != r->unknown5)
         ESP_LOGI(STATUSSTAG, "unknown5 0x%04X (%d)", r->unknown5, r->unknown5);
-#if 1
+#if _TRACE_UNKNOWN_BITS_
       if (r->flag3 || r->flag4 || r->flag5 || r->flag6 || r->flag7)
         ESP_LOGI(STATUSSTAG, "flags 3-7: %d,%d,%d,%d,%d", r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
       if (r->flag9 || r->flag10 || r->flag11 || r->flag12 || r->flag13 || r->flag14 || r->flag15)
@@ -144,7 +146,7 @@ namespace esphome
         ESP_LOGI(STATUSSTAG, "402 unknown4 0x%04X (%d)", r->unknown4, r->unknown4);
       if (this->unknown5 != r->unknown5)
         ESP_LOGI(STATUSSTAG, "402 unknown5 0x%08X (%d)", r->unknown5, r->unknown5);
-#if 1
+#if _TRACE_UNKNOWN_BITS_
       if (r->flag1 || r->flag2 || r->flag3 || r->flag4 || r->flag5 || r->flag6 || r->flag7)
         ESP_LOGI(STATUSSTAG, "404 flags 1-7: %d,%d,%d,%d,%d,%d,%d", r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
       if (r->unknown1 != 0x6419)
@@ -197,13 +199,13 @@ namespace esphome
         ESP_LOGI(STATUSSTAG, "403 unknown2 0x%02X (%d)", r->unknown2, r->unknown2);
       if (this->unknown3 != r->unknown3)
         ESP_LOGI(STATUSSTAG, "403 unknown3 0x%08X (%d)", r->unknown3, r->unknown3);
-#if 1
+#if _TRACE_UNKNOWN_BITS_
       if (r->unknown1 != 0x0019)
         ESP_LOGI(STATUSSTAG, "403 unknown1 0x%04X (%d)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0x8D)
         ESP_LOGI(STATUSSTAG, "403 unknown3 0x%02X (%d)", r->unknown2, r->unknown2);
-      if (r->unknown3 != 0x19FF6C16)
-        ESP_LOGI(STATUSSTAG, "403 unknown5 0x%08X (%d)", r->unknown3, r->unknown3);
+      if (r->unknown3 != 0x19FF6C00) // was 0x19FF6C16
+        ESP_LOGI(STATUSSTAG, "403 unknown3 0x%08X (%d)", r->unknown3, r->unknown3);
 #endif
     }
 
@@ -228,7 +230,7 @@ namespace esphome
         ESP_LOGI(STATUSSTAG, "404 unknown5 0x%02X (%d)", r->unknown5, r->unknown5);
       if (this->unknown6 != r->unknown6)
         ESP_LOGI(STATUSSTAG, "404 unknown6 0x%04X (%d)", r->unknown6, r->unknown6);
-#if 1
+#if _TRACE_UNKNOWN_BITS_
       if (r->unknown1 != 0x00000000)
         ESP_LOGI(STATUSSTAG, "404 unknown1 0x%08X (%d)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0x1901FF00)

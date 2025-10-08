@@ -427,7 +427,7 @@ namespace esphome
                                                             // 36;0 is off
                                                             // both 15 (ambi) and 16 (white) are lights
                                                             std::vector<uint8_t> payload = {0};
-                                                            send_cmd(this->extractor_light_->state_ ? cmd_light_on_white : cmd_light_off, payload, "lightstate");
+                                                            send_cmd(this->extractor_light_->state_ ? cmd_light_on_ambi : cmd_light_off, payload, "lightstate");
                                                             request_status = true;
                                                           }
                                                           // Brightness
