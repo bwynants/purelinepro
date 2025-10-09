@@ -417,21 +417,18 @@ namespace esphome
                                                         if(packet_)
                                                         {
                                                           bool request_status = false;
-                                                          bool on = false;
                                                           if (packet_->getLightState() != this->extractor_light_->state_)
                                                           {
                                                             ESP_LOGD(TAG, "setting light %d -> %d", packet_->getLightState(), this->extractor_light_->state_);
-                                                            // when shitching 'on' we need to restore the colors....
-                                                            on = this->extractor_light_->state_;
-                                                
                                                             // 36;0 is off
                                                             // both 15 (ambi) and 16 (white) are lights
                                                             std::vector<uint8_t> payload = {0};
-                                                            send_cmd(this->extractor_light_->state_ ? cmd_light_on_ambi : cmd_light_off, payload, "lightstate");
+                                                            // pick color mode as close as possible to what we need
+                                                            send_cmd(this->extractor_light_->state_ ? (this->extractor_light_->raw_temp_ > 127 ? cmd_light_on_ambi : cmd_light_on_white) : cmd_light_off, payload, "lightstate");
                                                             request_status = true;
                                                           }
                                                           // Brightness
-                                                          if (on || (this->extractor_light_->state_ && (packet_->getBrightness() != this->extractor_light_->raw_brightness_)))
+                                                          if (this->extractor_light_->state_ && (packet_->getBrightness() != this->extractor_light_->raw_brightness_))
                                                           {
                                                             ESP_LOGD(TAG, "setting light brigthness %d -> %d", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
                                                 
@@ -440,7 +437,7 @@ namespace esphome
                                                             request_status = true;
                                                           }
                                                           // ColorTemp
-                                                          if (on || (this->extractor_light_->state_ && (packet_->getColorTemp() != this->extractor_light_->raw_temp_)))
+                                                          if (this->extractor_light_->state_ && (packet_->getColorTemp() != this->extractor_light_->raw_temp_))
                                                           {
                                                             ESP_LOGD(TAG, "setting light temp %d -> %d", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
                                                 
