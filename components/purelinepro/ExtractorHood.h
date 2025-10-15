@@ -13,9 +13,9 @@ namespace esphome
       auto operator<=>(const Packet &) const = default;
 
     public:
-      // speed at 100% for max 5 minues
+      // speed at 100% for max 5 minutes
       bool getBoost() const;
-      // shudown sequence for 10 minutes
+      // shutdown sequence for 10 minutes
       bool getStopping() const;
       // grease filter needs cleaning
       bool getCleanGreaseFilter() const;
@@ -73,7 +73,7 @@ namespace esphome
     public:
       // minutes before grease filter must be cleaned
       uint32_t getGreaseTimer() const;
-      // are we in re-circukate moe
+      // are we in recirculate mode
       bool getRecirculate() const;
       // version of the firmware
       std::string getVersion() const;
@@ -107,23 +107,34 @@ namespace esphome
       auto operator<=>(const Packet403 &) const = default;
 
     public:
+      uint8_t getSwitchOffFanSpeed() const; // not sure, could be unknown2 also?
       // minutes the leds have been on
       uint32_t getAnotherTimer() const;
       uint32_t getRecirculateTimer() const;
       uint32_t getFanTimer() const;
-      uint8_t getLastFanSpeed() const;
+      uint8_t getFanSpeed() const; // the stored default
+      uint8_t getFunctionalBrightness() const;// the stored default
+      uint8_t getFunctionalColorTemp() const;// the stored default
+      uint8_t getAmbiBrightness() const;// the stored default
+      uint8_t getAmbiColorTemp() const;// the stored default
+
+      uint8_t getBrightness(bool ambi) const;// the stored default
+      uint8_t getColorTemp(bool ambi) const;// the stored default
 
       // print the differences between both packets, debug purposes
       void diff(const Packet403 *r) const;
-
     private:
-      uint16_t unknown1;
-      uint32_t anotherTimer;     // ??
-      uint32_t recirculateTimer; // ?
-      uint32_t fantimer;
-      uint8_t lastfanspeed;
+      uint8_t switchOffFanSpeed; //not sure
+      uint8_t unknown1;
+      uint32_t anotherTimer;     
+      uint32_t recirculateTimer; 
+      uint32_t fanTimer;
+      uint8_t fanSpeed;
+      uint8_t functionalBrightness;
+      uint8_t functionalColor;
+      uint8_t ambiBrightness;
+      uint8_t ambiColor;
       uint8_t unknown2;
-      uint32_t unknown3;
     };
 
     class __attribute__((__packed__)) Packet404

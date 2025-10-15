@@ -152,11 +152,11 @@ namespace esphome
       void handleStatus404(const Packet404 *pkt);
 
     public:
-      void send_cmd(int command_id, const std::vector<uint8_t> &args, const std::string &msg, bool log = true);
-      void send_cmd(std::string cmd, const std::string &msg, bool log = true);
+      bool send_cmd(int command_id, const std::vector<uint8_t> &args, const std::string &msg, bool log = true);
+      bool send_cmd(std::string cmd, const std::string &msg, bool log = true);
 
     protected:
-      void recieved_answer(uint8_t *data, uint16_t size);
+      void received_answer(uint8_t *data, uint16_t size);
 
       void request_status_update();
       void request_status40x_update();
