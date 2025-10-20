@@ -4,7 +4,7 @@
 #endif
 #include "ExtractorHood.h"
 
-#define _TRACE_UNKNOWN_BITS_ 1
+#define _TRACE_UNKNOWN_BITS_ 0
 
 namespace esphome
 {
@@ -12,7 +12,7 @@ namespace esphome
   {
     const char *STATUSSTAG = "Status";
 
-    const std::string lightMode[] = {"off", "white", "ambi"};
+    const std::string lightMode[] = {"normal", "preset white", "preset ambi"};
 
     uint16_t swapEndian(uint16_t value)
     {
@@ -44,7 +44,7 @@ namespace esphome
     }
     bool Packet::getLightState() const
     {
-      return lightmode > 0;
+      return brightness > 0;//lightmode > 0;
     }
     uint8_t Packet::getBrightness() const
     {
@@ -93,7 +93,7 @@ namespace esphome
         ESP_LOGI(STATUSSTAG, "unknown1 0x%02X (%u)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0xFF)
         ESP_LOGI(STATUSSTAG, "unknown2 0x%02X (%u)", r->unknown2, r->unknown2);
-      if (r->unknown3 != 0x0100)
+      if (r->unknown3 != 0x0100) // 0xFF00
         ESP_LOGI(STATUSSTAG, "unknown3 0x%04X (%u)", r->unknown3, r->unknown3);
       if (r->unknown4 != 0x00FF)
         ESP_LOGI(STATUSSTAG, "unknown4 0x%04X (%u)", r->unknown4, r->unknown4);
@@ -148,16 +148,16 @@ namespace esphome
         ESP_LOGI(STATUSSTAG, "402 unknown5 0x%08X (%u)", r->unknown5, r->unknown5);
 #if _TRACE_UNKNOWN_BITS_
       if (r->flag1 || r->flag2 || r->flag3 || r->flag4 || r->flag5 || r->flag6 || r->flag7)
-        ESP_LOGI(STATUSSTAG, "404 flags 1-7: %u,%u,%u,%u,%u,%u,%u", r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
-      if (r->unknown1 != 0x6419)
+        ESP_LOGI(STATUSSTAG, "402 flags 1-7: %u,%u,%u,%u,%u,%u,%u", r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
+      if (r->unknown1 != 0x6419) // 0x640C
         ESP_LOGI(STATUSSTAG, "402 unknown1 0x%04X (%u)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0x0ff)
         ESP_LOGI(STATUSSTAG, "402 unknown2 0x%02X (%u)", r->unknown2, r->unknown2);
-      if (r->unknown3 != 0x00)
+      if (r->unknown3 != 0x00) // 0x04
         ESP_LOGI(STATUSSTAG, "402 unknown3 0x%02X (%u)", r->unknown3, r->unknown3);
-      if (r->unknown4 != 0x0000)
+      if (r->unknown4 != 0x0000) // 0x1E1B0000
         ESP_LOGI(STATUSSTAG, "402 unknown4 0x%04X (%u)", r->unknown4, r->unknown4);
-      if (r->unknown5 != 0x0000)
+      if (r->unknown5 != 0x0000) // 0x1E1B0000
         ESP_LOGI(STATUSSTAG, "402 unknown5 0x%04X (%u)", r->unknown5, r->unknown5);
 #endif
     }
@@ -238,7 +238,7 @@ namespace esphome
 #if _TRACE_UNKNOWN_BITS_
       if (this->getSwitchOffFanSpeed() != 0x19) // not sure about it....
         ESP_LOGI(STATUSSTAG, "403 getSwitchOffFanSpeed 0x%02X (%u)", r->getSwitchOffFanSpeed(), r->getSwitchOffFanSpeed());
-      if (r->unknown1 != 0x00)
+      if (r->unknown1 != 0x00) // 0x02
         ESP_LOGI(STATUSSTAG, "403 unknown1 0x%02X (%u)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0x19)
         ESP_LOGI(STATUSSTAG, "403 unknown2 0x%02X (%u)", r->unknown2, r->unknown2);
@@ -271,9 +271,9 @@ namespace esphome
         ESP_LOGI(STATUSSTAG, "404 unknown1 0x%08X (%u)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0x1901FF00) // off delay? channel/ rssi
         ESP_LOGI(STATUSSTAG, "404 unknown2 0x%08X (%u)", r->unknown2, r->unknown2);
-      if (r->unknown3 != 0x00000040)
+      if (r->unknown3 != 0x00000040) // 
         ESP_LOGI(STATUSSTAG, "404 unknown3 0x%08X (%u)", r->unknown3, r->unknown3);
-      if (r->unknown4 != 0x0000)
+      if (r->unknown4 != 0x0000) // 0x0075
         ESP_LOGI(STATUSSTAG, "404 unknown4 0x%04X (%u)", r->unknown4, r->unknown4);
       if (r->unknown5 != 0x00)
         ESP_LOGI(STATUSSTAG, "404 unknown5 0x%02X (%u)", r->unknown5, r->unknown5);

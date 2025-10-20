@@ -382,23 +382,21 @@ namespace esphome
                                                         if (packet_->getFanState() != this->extractor_fan_->state)
                                                         {
                                                           ESP_LOGI(TAG, "setting fan %u -> %u", packet_->getFanState(), this->extractor_fan_->state);
-                                                          // when shitching 'on' we need to restore the speed....
-                                                          on = this->extractor_fan_->state;
 
-                                                          std::vector<uint8_t> payload = {1, this->extractor_fan_->state};
-                                                          send_cmd(cmd_fan_state, payload, "fanstate");
-                                                          request_status = true;
-                                                        }
-                                                        if (this->extractor_fan_->state)
-                                                        {
-                                                          if (on || (packet_->getFanSpeed() != this->extractor_fan_->speed))
-                                                          {
-                                                            ESP_LOGI(TAG, "setting fanspeed %u -> %u", packet_->getFanSpeed(), this->extractor_fan_->speed);
-
-                                                            std::vector<uint8_t> payload = {1, (uint8_t)this->extractor_fan_->speed};
-                                                            send_cmd(cmd_fan_speed, payload, "fanspeed");
+                                                          if (!this->extractor_fan_->state)
+                                                          {  // turn it off
+                                                            std::vector<uint8_t> payload = {1, this->extractor_fan_->state};
+                                                            send_cmd(cmd_fan_state, payload, "fanstate");
                                                             request_status = true;
                                                           }
+                                                        }
+                                                        if (this->extractor_fan_->state && (packet_->getFanSpeed() != this->extractor_fan_->speed))
+                                                        {
+                                                          ESP_LOGI(TAG, "setting fanspeed %u -> %u", packet_->getFanSpeed(), this->extractor_fan_->speed);
+
+                                                          std::vector<uint8_t> payload = {1, (uint8_t)this->extractor_fan_->speed};
+                                                          send_cmd(cmd_fan_speed, payload, "fanspeed");
+                                                          request_status = true;
                                                         }
                                                         if (request_status)
                                                         {
@@ -422,25 +420,19 @@ namespace esphome
                                                           if (packet_->getLightState() != this->extractor_light_->state_)
                                                           {
                                                             ESP_LOGI(TAG, "setting light %u -> %u", packet_->getLightState(), this->extractor_light_->state_);
-                                                            // when shitching 'on' we need to restore the colors....
-                                                            on = this->extractor_light_->state_; // we do not want the 'stored' defaults when switching on
 
                                                             // 36;0 is off
-                                                            // both 15 (ambi) and 16 (white) are lights
-                                                            std::vector<uint8_t> payload = {0};
-                                                            // pick color mode as close as possible to what we need
-                                                            send_cmd(this->extractor_light_->state_ ? mode : cmd_light_off, payload, "lightstate");
-                                                            request_status = true;
+                                                            if (!this->extractor_light_->state_)
+                                                            { // turn it off
+                                                              // both 15 (ambi) and 16 (white) are lights
+                                                              std::vector<uint8_t> payload = {0};
+                                                              // pick color mode as close as possible to what we need
+                                                              send_cmd(this->extractor_light_->state_ ? mode : cmd_light_off, payload, "lightstate");
+                                                              request_status = true;
+                                                            }
                                                           }
                                                           // Brightness
-                                                          // when turning on and brightness is close to the default brightness
-                                                          // we do not set the brightness ourselves (less flickering)
-                                                          auto setBrightness  =  !on ||
-                                                                                 (this->packet403_ ==  nullptr) ||
-                                                                                 (std::abs(int(this->packet403_->getBrightness(mode == cmd_light_on_ambi)) -  int(this->extractor_light_->raw_brightness_)) > 5);
-                                                          if (setBrightness && 
-                                                              (this->extractor_light_->state_ &&
-                                                              (packet_->getBrightness() != this->extractor_light_->raw_brightness_)))
+                                                          if (this->extractor_light_->state_ && (packet_->getBrightness() != this->extractor_light_->raw_brightness_))
                                                           {
                                                             ESP_LOGI(TAG, "setting light brigthness %u -> %u", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
 
@@ -449,14 +441,7 @@ namespace esphome
                                                             request_status = true;
                                                           }
                                                           // ColorTemp
-                                                          // when turning on and color temperature is close to the default color temperature
-                                                          // we do not set the color temperature ourselves (less flickering)
-                                                          auto setColTemp  = !on ||
-                                                                             (this->packet403_ ==  nullptr) || 
-                                                                             (std::abs(int(this->packet403_->getColorTemp(mode == cmd_light_on_ambi)) - int(this->extractor_light_->raw_temp_)) > 5);
-                                                          if (setColTemp && 
-                                                              (this->extractor_light_->state_ &&
-                                                              (packet_->getColorTemp() != this->extractor_light_->raw_temp_)))
+                                                          if (this->extractor_light_->state_ && (packet_->getColorTemp() != this->extractor_light_->raw_temp_))
                                                           {
                                                             ESP_LOGI(TAG, "setting light color temp %u -> %u", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
 
