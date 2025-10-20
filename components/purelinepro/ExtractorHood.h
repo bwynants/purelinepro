@@ -26,6 +26,7 @@ namespace esphome
       bool getLightState() const;
       uint8_t getBrightness() const;
       uint8_t getColorTemp() const;
+      uint8_t getLightMode() const;
 
       // fan on or off
       bool getFanState() const;

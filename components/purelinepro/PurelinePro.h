@@ -116,6 +116,8 @@ namespace esphome
       SUB_BUTTON(delayed_off)
       SUB_BUTTON(set_default_light)
       SUB_BUTTON(set_default_speed)
+      SUB_BUTTON(ambi_light)
+      SUB_BUTTON(white_light)
       SUB_BUTTON(reset_grease)
 #endif
 #ifdef USE_SWITCH

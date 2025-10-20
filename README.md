@@ -126,10 +126,12 @@ light:
 Useful remote-like actions:
   
 - `power`: simulates power of remote
-- `delayed_off`: if on it sets the fan to 25% and puts it off after 5 minutes
-- `reset_grease`: resets grease filter timer
-- `set_default_light`: sets default light
+- `delayed_off`: if clicked it sets the fan to 25% and puts it off after 5 minutes
+- `set_default_light`: sets default light for ambi or white, if ambi or white mode is not active it does nothing....
+- `ambi_light`: start ambi light mode
+- `white_light`: start white light mode
 - `set_default_speed`: sets default speed
+- `reset_grease`: resets grease filter timer
 
 
 ```yaml
@@ -146,6 +148,10 @@ button:
       name: "Set Default Light"
     set_default_speed:
       name: "Set Default Speed"
+    ambi_light:
+      name: "Ambi Light"
+    white_light:
+      name: "White Light"
 ```
 
 ---

@@ -505,37 +505,70 @@ namespace esphome
       if (this->set_default_light_button_)
       {
         this->set_default_light_button_->add_on_press_callback([this]()
-                                                          {
+                                                               {
           if (this->node_state == espbt::ClientState::ESTABLISHED)
           {
+            if (this->packet_ && (this->packet_->getLightMode()  > 0))
+            {
 #ifdef USE_CMDS
-            // store default light
-            std::vector<uint8_t> payload = {1,1};
-            send_cmd(cmd_light_default, payload, "light_default");
+              // store default light
+              std::vector<uint8_t> payload = {1,this->packet_->getLightMode()};
+              send_cmd(cmd_light_default, payload, "light_default");
 #endif
+           }
           } });
       }
       if (this->set_default_speed_button_)
       {
         this->set_default_speed_button_->add_on_press_callback([this]()
-                                                          {
+                                                               {
+          if (this->node_state == espbt::ClientState::ESTABLISHED)
+          {
+            if (this->packet_ && (this->packet_->getFanSpeed()  > 0))
+            {
+#ifdef USE_CMDS
+              // store default fan speed
+              std::vector<uint8_t> payload = {0};
+              send_cmd(cmd_fan_default, payload, "fan_default");
+#endif
+            }
+          } });
+      }
+      if (this->ambi_light_button_)
+      {
+        this->ambi_light_button_->add_on_press_callback([this]()
+                                                            {
           if (this->node_state == espbt::ClientState::ESTABLISHED)
           {
 #ifdef USE_CMDS
-            // store default fan speed
             std::vector<uint8_t> payload = {0};
-            send_cmd(cmd_fan_default, payload, "fan_default");
+            // pick color mode as close as possible to what we need
+            send_cmd(cmd_light_on_ambi, payload, "set_ambi");
+#endif
+          } });
+      }
+      if (this->white_light_button_)
+      {
+        this->white_light_button_->add_on_press_callback([this]()
+                                                             {
+          if (this->node_state == espbt::ClientState::ESTABLISHED)
+          {
+#ifdef USE_CMDS
+            // set white preset light
+            std::vector<uint8_t> payload = {0};
+            // pick color mode as close as possible to what we need
+            send_cmd(cmd_light_on_white, payload, "set_white");
 #endif
           } });
       }
       if (this->reset_grease_button_)
       {
         this->reset_grease_button_->add_on_press_callback([this]()
-                                                         {
+                                                          {
           if (this->node_state == espbt::ClientState::ESTABLISHED)
           {
 #ifdef USE_CMDS
-            // simulate power press
+            // simulate reset press
             std::vector<uint8_t> payload = {0};
             if (send_cmd(cmd_reset_grease, payload, "resetgrease"))
               pending_request_--;// this does not send an acknoladge
@@ -747,7 +780,7 @@ namespace esphome
         ESP_LOGD(UARTTAG, "Received Status402");
         this->status40x_pending_--;
         handleStatus402(reinterpret_cast<Packet402 *>(pData)); // reinterpret_cast
-        this->status40x_cmd++;     
+        this->status40x_cmd++;
       }
       else if (this->status40x_pending_ && (this->status40x_cmd == cmd_hood_status403) && (length == sizeof(Packet403)))
       {

@@ -54,6 +54,10 @@ namespace esphome
     {
       return colortemp;
     }
+    uint8_t Packet::getLightMode() const
+    {
+      return lightmode;
+    }
 
     bool Packet::getFanState() const
     {
