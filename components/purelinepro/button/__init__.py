@@ -46,10 +46,10 @@ CONFIG_SCHEMA = cv.All(
                 ExtractorButton, entity_category=ENTITY_CATEGORY_CONFIG, icon=ICON_LIGHTBULB,
             ),
             cv.Optional(CONF_AMBILIGHT): button.button_schema(
-                ExtractorButton, entity_category=ENTITY_CATEGORY_CONFIG, icon=ICON_LIGHTBULB,
+                ExtractorButton, entity_category=ENTITY_CATEGORY_NONE, icon=ICON_LIGHTBULB,
             ),
             cv.Optional(CONF_WHITELIGHT): button.button_schema(
-                ExtractorButton, entity_category=ENTITY_CATEGORY_CONFIG, icon=ICON_LIGHTBULB,
+                ExtractorButton, entity_category=ENTITY_CATEGORY_NONE, icon=ICON_LIGHTBULB,
             ),
             cv.Optional(CONF_DEFAULTSPEED): button.button_schema(
                 ExtractorButton, entity_category=ENTITY_CATEGORY_CONFIG, icon=ICON_LIGHTBULB,
