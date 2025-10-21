@@ -43,8 +43,10 @@ namespace esphome
           auto_off_timer = 0;
 
           // put fan off
-          this->extractor_fan_->state = 0;
-          this->extractor_fan_->publish_state();
+          if (this->extractor_fan_) {
+            this->extractor_fan_->state = 0;
+            this->extractor_fan_->publish_state();
+          }
         }
         else
         {
@@ -202,7 +204,7 @@ namespace esphome
       }
       else
       {
-        // skip first, let HA restore sates it knows
+        // skip first, let HA restore states it knows
         this->packet_ = std::make_unique<struct Packet>(*pkt);
       }
 
@@ -216,7 +218,7 @@ namespace esphome
       {
         ESP_LOGD(TAG, "Status skipped %u", this->status_pending_);
       }
-      // update sensors always, independend of status_pending_
+      // update sensors always, independent of status_pending_
       handleSensors(this->packet_.get());
     }
 
@@ -236,7 +238,7 @@ namespace esphome
       }
       else
       {
-        // skip first, let HA restore sates it knows
+        // skip first, let HA restore states it knows
         this->packet402_ = std::make_unique<struct Packet402>(*pkt402);
       }
       if (this->status40x_pending_ == 0)
@@ -267,7 +269,7 @@ namespace esphome
       }
       else
       {
-        // skip first, let HA restore sates it knows
+        // skip first, let HA restore states it knows
         this->packet403_ = std::make_unique<struct Packet403>(*pkt403);
       }
       if (this->status40x_pending_ == 0)
@@ -297,7 +299,7 @@ namespace esphome
       }
       else
       {
-        // skip first, let HA restore sates it knows
+        // skip first, let HA restore states it knows
         this->packet404_ = std::make_unique<struct Packet404>(*pkt404);
       }
       if (this->status40x_pending_ == 0)
@@ -434,7 +436,7 @@ namespace esphome
                                                           // Brightness
                                                           if (this->extractor_light_->state_ && (packet_->getBrightness() != this->extractor_light_->raw_brightness_))
                                                           {
-                                                            ESP_LOGI(TAG, "setting light brigthness %u -> %u", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
+                                                            ESP_LOGI(TAG, "setting light brightness %u -> %u", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
 
                                                             std::vector<uint8_t> payload = {1, this->extractor_light_->raw_brightness_};
                                                             send_cmd(cmd_light_brightness, payload, "brightness");
@@ -476,7 +478,7 @@ namespace esphome
         this->delayed_off_button_->add_on_press_callback([this]()
                                                          {
 #ifdef USE_LIGHT
-                                                           if (this->extractor_light_->state_)
+                                                           if (this->extractor_light_ && this->extractor_light_->state_)
                                                            {
                                                              // Use values from packet403_ if available; otherwise use defaults.
                                                              this->extractor_light_->raw_brightness_ = packet403_ ? packet403_->getAmbiBrightness() : 70;
@@ -486,13 +488,13 @@ namespace esphome
 #endif
 #ifdef USE_FAN
                                                            auto newSpeed = packet403_ ? packet403_->getSwitchOffFanSpeed() : 25;
-                                                           if (this->extractor_fan_->state && (this->extractor_fan_->speed > newSpeed))
+                                                           if (this->extractor_fan_ && this->extractor_fan_->state && (this->extractor_fan_->speed > newSpeed))
                                                            {
                                                              ESP_LOGI(TAG, "reducing fanspeed %u -> %u", this->extractor_fan_->speed, newSpeed);
                                                              this->extractor_fan_->speed = newSpeed;
                                                              this->extractor_fan_->publish_state();
                                                            }
-                                                           if (this->extractor_fan_->state)
+                                                           if (this->extractor_fan_ && this->extractor_fan_->state)
                                                            {
                                                              ESP_LOGI(TAG, "auto_off_timer_ started");
 
@@ -515,7 +517,7 @@ namespace esphome
               std::vector<uint8_t> payload = {1,this->packet_->getLightMode()};
               send_cmd(cmd_light_default, payload, "light_default");
 #endif
-           }
+            }
           } });
       }
       if (this->set_default_speed_button_)
@@ -571,7 +573,7 @@ namespace esphome
             // simulate reset press
             std::vector<uint8_t> payload = {0};
             if (send_cmd(cmd_reset_grease, payload, "resetgrease"))
-              pending_request_--;// this does not send an acknoladge
+              pending_request_--;// this does not send an acknowledge
 #endif
           } });
       }

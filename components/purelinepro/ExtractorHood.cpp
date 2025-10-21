@@ -14,11 +14,11 @@ namespace esphome
 
     const std::string lightMode[] = {"normal", "preset white", "preset ambi"};
 
-    uint16_t swapEndian(uint16_t value)
+    uint16_t swapEndian(uint16_t value) 
     {
       return (value >> 8) | (value << 8);
     }
-    uint32_t swapEndian(uint32_t value)
+    uint32_t swapEndian(uint32_t value) 
     {
       return ((value >> 24) & 0x000000FF) |
              ((value >> 8) & 0x0000FF00) |
@@ -68,7 +68,7 @@ namespace esphome
       return fanspeed;
     }
 
-    // for debug/reverse engeneer purposes
+    // for debug/reverse engineer purposes
     void Packet::diff(const Packet *r) const
     {
       if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag8 != r->flag8))

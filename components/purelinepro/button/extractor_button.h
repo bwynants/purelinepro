@@ -22,5 +22,5 @@ namespace esphome
       }
     };
 
-  } // namespace shutdown
+  } // namespace purelinepro
 } // namespace esphome

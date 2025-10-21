@@ -50,26 +50,26 @@ namespace esphome
 
     namespace espbt = esphome::esp32_ble_tracker;
 
-    const int cmd_power = 10;
-    const int cmd_light_on_ambi = 15;
-    const int cmd_light_on_white = 16;
-    const int cmd_light_brightness = 21;
-    const int cmd_light_colortemp = 22;
+    constexpr int cmd_power = 10;
+    constexpr int cmd_light_on_ambi = 15;
+    constexpr int cmd_light_on_white = 16;
+    constexpr int cmd_light_brightness = 21;
+    constexpr int cmd_light_colortemp = 22;
 
-    const int cmd_reset_grease = 23;
-    const int cmd_fan_recirculate = 25;
+    constexpr int cmd_reset_grease = 23;
+    constexpr int cmd_fan_recirculate = 25;
 
-    const int cmd_fan_speed = 28;
-    const int cmd_fan_state = 29;
-    const int cmd_light_off = 36;
+    constexpr int cmd_fan_speed = 28;
+    constexpr int cmd_fan_state = 29;
+    constexpr int cmd_light_off = 36;
 
-    const int cmd_fan_default = 41;
-    const int cmd_light_default = 42;
+    constexpr int cmd_fan_default = 41;
+    constexpr int cmd_light_default = 42;
 
-    const int cmd_hood_status = 400;
-    const int cmd_hood_status402 = 402;
-    const int cmd_hood_status403 = 403;
-    const int cmd_hood_status404 = 404;
+    constexpr int cmd_hood_status = 400;
+    constexpr int cmd_hood_status402 = 402;
+    constexpr int cmd_hood_status403 = 403;
+    constexpr int cmd_hood_status404 = 404;
 
     class PurelinePro : public esphome::ble_client::BLEClientNode, public PollingComponent
     {
@@ -175,7 +175,7 @@ namespace esphome
 
       // for timeout on request
       uint32_t last_request_ = millis();
-      // how many cmd's ae outstanding?
+      // how many cmd's are outstanding?
       uint32_t pending_request_ = 0;
 
       uint32_t status_pending_ = 0;

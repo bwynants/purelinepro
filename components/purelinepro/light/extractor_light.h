@@ -12,8 +12,8 @@ namespace esphome
     class ExtractorLight : public light::LightOutput, public Component
     {
     public:
-        const float min_mireds = 154.0f;//oldest (6500K)
-        const float max_mireds = 370.0f;//warmest (2700K)
+        static constexpr float min_mireds = 154.0f;//oldest (6500K)
+        static constexpr float max_mireds = 370.0f;//warmest (2700K)
       light::LightTraits get_traits() override
       {
 
@@ -24,22 +24,22 @@ namespace esphome
         return traits;
       }
 
-      uint8_t to_raw_brightness(float brightness)
+      uint8_t to_raw_brightness(float brightness) const
       {
         return static_cast<uint8_t>(brightness * 255.0f + 0.5f);
       }
-      uint8_t to_raw_temp(float mireds)
+      uint8_t to_raw_temp(float mireds) const
       {
         // Clamp mireds to valid range
         mireds = std::clamp(mireds, min_mireds, max_mireds);
 
         return static_cast<uint8_t>(roundf((mireds - min_mireds) * 255.0f / (max_mireds - min_mireds)));
       }
-      float to_brightness(uint8_t raw_brightness)
+      float to_brightness(uint8_t raw_brightness) const
       {
-        return raw_brightness_ / 255.0f;
+        return raw_brightness / 255.0f;
       }
-      float to_mireds(uint8_t raw_temp)
+      float to_mireds(uint8_t raw_temp) const
       {
         return min_mireds + (float(raw_temp) / 255.0f) * (max_mireds - min_mireds);
       }
