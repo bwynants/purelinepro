@@ -28,19 +28,19 @@ namespace esphome
 
     bool Packet::getBoost() const
     {
-      return flag1 && fanspeed > 75; // boost, will lower fan after timer....
+      return flags1.flag1 && fanspeed > 75; // boost, will lower fan after timer....
     }
     bool Packet::getStopping() const
     {
-      return flag1 && !getBoost(); // timer goes but not boost, so turning off
+      return flags1.flag1 && !getBoost(); // timer goes but not boost, so turning off
     }
     uint16_t Packet::getTimer() const
     {
-      return flag1 ? swapEndian(countDown) : 0;
+      return flags1.flag1 ? swapEndian(countDown) : 0;
     }
     bool Packet::getCleanGreaseFilter() const
     {
-      return flag8;
+      return flags2.flag0;
     }
     bool Packet::getLightState() const
     {
@@ -68,11 +68,24 @@ namespace esphome
       return fanspeed;
     }
 
-    // for debug/reverse engineer purposes
+    void Packet::print() const
+    {
+      ESP_LOGI(STATUSSTAG, "flags1: 0x%02X; flags2: 0x%02X", this->flags1.raw, this->flags2.raw);
+      ESP_LOGI(STATUSSTAG, "speed: %u lightmode: %s, b:%u t:%u", this->fanspeed, lightMode[this->lightmode].c_str(), this->brightness, this->colortemp);
+      ESP_LOGI(STATUSSTAG, "countDown: %u", this->getTimer());
+      ESP_LOGI(STATUSSTAG, "unknown1 0x%04X (%u)", this->unknown1, this->unknown1);
+      ESP_LOGI(STATUSSTAG, "unknown2 0x%02X (%u)", this->unknown2, this->unknown2);
+      ESP_LOGI(STATUSSTAG, "unknown3 0x%04X (%u)", this->unknown3, this->unknown3);
+      ESP_LOGI(STATUSSTAG, "unknown4 0x%04X (%u)", this->unknown4, this->unknown4);
+      ESP_LOGI(STATUSSTAG, "unknown5 0x%04X (%u)", this->unknown5, this->unknown5);
+    }
+
     void Packet::diff(const Packet *r) const
     {
-      if ((this->flag0 != r->flag0) || (this->flag1 != r->flag1) || (this->flag2 != r->flag2) || (this->flag3 != r->flag3) || (this->flag8 != r->flag8))
-        ESP_LOGI(STATUSSTAG, "flags: 0:%u, 1:%u, 2:%u, 8:%u", r->flag0, r->flag1, r->flag2, r->flag8);
+      if (this->flags1.raw != r->flags1.raw)
+        ESP_LOGI(STATUSSTAG, "flags1: 0x%02X", r->flags1.raw);
+      if (this->flags2.raw != r->flags2.raw)
+        ESP_LOGI(STATUSSTAG, "flags2: 0x%02X", r->flags2.raw);
       if ((this->fanspeed != r->fanspeed) || (this->lightmode != r->lightmode) || (this->brightness != r->brightness) || (this->colortemp != r->colortemp))
         ESP_LOGI(STATUSSTAG, "speed: %u lightmode: %s, b:%u t:%u", r->fanspeed, lightMode[r->lightmode].c_str(), r->brightness, r->colortemp);
       if (this->getTimer() != r->getTimer())
@@ -89,10 +102,6 @@ namespace esphome
       if (this->unknown5 != r->unknown5)
         ESP_LOGI(STATUSSTAG, "unknown5 0x%04X (%u)", r->unknown5, r->unknown5);
 #if _TRACE_UNKNOWN_BITS_
-      if (r->flag3 || r->flag4 || r->flag5 || r->flag6 || r->flag7)
-        ESP_LOGI(STATUSSTAG, "flags 3-7: %u,%u,%u,%u,%u", r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
-      if (r->flag9 || r->flag10 || r->flag11 || r->flag12 || r->flag13 || r->flag14 || r->flag15)
-        ESP_LOGI(STATUSSTAG, "flags 9-15: %u,%u,%u,%u,%u,%u,%u", r->flag9, r->flag10, r->flag11, r->flag12, r->flag13, r->flag14, r->flag15);
       if (r->unknown1 != 0x00)
         ESP_LOGI(STATUSSTAG, "unknown1 0x%02X (%u)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0xFF)
@@ -113,26 +122,33 @@ namespace esphome
 
     bool Packet402::getRecirculate() const
     {
-      return flag0;
+      return flags.flag0;
     }
 
-    std::string Packet402::getVersion() const
-    {
-      std::stringstream vStream;
-      vStream << major << '.' << minor << '.' << patch;
-      return vStream.str();
-    }
+   void Packet402::print() const
+   {
+      ESP_LOGI(STATUSSTAG, "402");
+      ESP_LOGI(STATUSSTAG, "flags: 0x%02X", this->flags.raw);
+      ESP_LOGI(STATUSSTAG, "GreaseTimer: %u", this->getGreaseTimer());
+      ESP_LOGI(STATUSSTAG, "Recirculate: %u", this->getRecirculate());
+      ESP_LOGI(STATUSSTAG, "major 0x%02X (%u)", this->major, this->major);
+      ESP_LOGI(STATUSSTAG, "minor 0x%02X (%u)", this->minor, this->minor);
+      ESP_LOGI(STATUSSTAG, "patch 0x%02X (%u)", this->patch, this->patch);
+      ESP_LOGI(STATUSSTAG, "unknown1 0x%04X (%u)", this->unknown1, this->unknown1);
+      ESP_LOGI(STATUSSTAG, "unknown2 0x%02X (%u)", this->unknown2, this->unknown2);
+      ESP_LOGI(STATUSSTAG, "unknown3 0x%02X (%u)", this->unknown3, this->unknown3);
+      ESP_LOGI(STATUSSTAG, "unknown4 0x%04X (%u)", this->unknown4, this->unknown4);
+      ESP_LOGI(STATUSSTAG, "unknown5 0x%08X (%u)", this->unknown5, this->unknown5);
+  }
 
     void Packet402::diff(const Packet402 *r) const
     {
-      if (this->flag0 != r->flag0)
-        ESP_LOGI(STATUSSTAG, "flags 402: 0:%u", r->flag0);
+      if (this->flags.raw != r->flags.raw)
+        ESP_LOGI(STATUSSTAG, "flags: 0x%02X", r->flags.raw);
       if (this->getGreaseTimer() != r->getGreaseTimer())
         ESP_LOGI(STATUSSTAG, "GreaseTimer: %u", r->getGreaseTimer());
       if (this->getRecirculate() != r->getRecirculate())
         ESP_LOGI(STATUSSTAG, "Recirculate: %u", r->getRecirculate());
-      if (this->getVersion() != r->getVersion())
-        ESP_LOGI(STATUSSTAG, "Version: %s", r->getVersion());
       if (this->major != r->major)
         ESP_LOGI(STATUSSTAG, "major 0x%02X (%u)", r->major, r->major);
       if (this->minor != r->minor)
@@ -151,8 +167,6 @@ namespace esphome
       if (this->unknown5 != r->unknown5)
         ESP_LOGI(STATUSSTAG, "402 unknown5 0x%08X (%u)", r->unknown5, r->unknown5);
 #if _TRACE_UNKNOWN_BITS_
-      if (r->flag1 || r->flag2 || r->flag3 || r->flag4 || r->flag5 || r->flag6 || r->flag7)
-        ESP_LOGI(STATUSSTAG, "402 flags 1-7: %u,%u,%u,%u,%u,%u,%u", r->flag1, r->flag2, r->flag3, r->flag4, r->flag5, r->flag6, r->flag7);
       if (r->unknown1 != 0x6419) // 0x640C
         ESP_LOGI(STATUSSTAG, "402 unknown1 0x%04X (%u)", r->unknown1, r->unknown1);
       if (r->unknown2 != 0x0ff)
@@ -214,6 +228,23 @@ namespace esphome
     {
       return ambi ? getAmbiColorTemp() : getFunctionalColorTemp();
     }
+
+    void Packet403::print() const
+    {
+      ESP_LOGI(STATUSSTAG, "403");
+      ESP_LOGI(STATUSSTAG, "getSwitchOffFanSpeed: %u", this->getSwitchOffFanSpeed());
+      ESP_LOGI(STATUSSTAG, "AnotherTimer: %u", this->getAnotherTimer());
+      ESP_LOGI(STATUSSTAG, "RecirculateTimer: %u", this->getRecirculateTimer());
+      ESP_LOGI(STATUSSTAG, "FanTimer: %u", this->getFanTimer());
+      ESP_LOGI(STATUSSTAG, "FanSpeed %u", this->getFanSpeed());
+      ESP_LOGI(STATUSSTAG, "FunctionalBrightness %u", this->getFunctionalBrightness());
+      ESP_LOGI(STATUSSTAG, "FunctionalColor %u", this->getFunctionalColorTemp());
+      ESP_LOGI(STATUSSTAG, "AmbiBrightness %u", this->getAmbiBrightness());
+      ESP_LOGI(STATUSSTAG, "AmbiColor %u", this->getAmbiColorTemp());
+      ESP_LOGI(STATUSSTAG, "unknown1 0x%02X (%u)", this->unknown1, this->unknown1);
+      ESP_LOGI(STATUSSTAG, "unknown2 0x%02X (%u)", this->unknown2, this->unknown2);
+    }
+
     void Packet403::diff(const Packet403 *r) const
     {
       if (this->getSwitchOffFanSpeed() != r->getSwitchOffFanSpeed())
@@ -252,6 +283,18 @@ namespace esphome
     uint32_t Packet404::getLedTimer() const
     {
       return swapEndian(this->ledtimer) / 60;
+    }
+
+    void Packet404::print() const
+    {
+      ESP_LOGI(STATUSSTAG, "404");
+      ESP_LOGI(STATUSSTAG, "LedTimer: %u", this->getLedTimer());
+      ESP_LOGI(STATUSSTAG, "unknown1 0x%08X (%u)", this->unknown1, this->unknown1);
+      ESP_LOGI(STATUSSTAG, "unknown2 0x%08X (%u)", this->unknown2, this->unknown2);
+      ESP_LOGI(STATUSSTAG, "unknown3 0x%08X (%u)", this->unknown3, this->unknown3);
+      ESP_LOGI(STATUSSTAG, "unknown4 0x%04X (%u)", this->unknown4, this->unknown4);
+      ESP_LOGI(STATUSSTAG, "unknown5 0x%02X (%u)", this->unknown5, this->unknown5);
+      ESP_LOGI(STATUSSTAG, "unknown6 0x%04X (%u)", this->unknown6, this->unknown6);
     }
 
     void Packet404::diff(const Packet404 *r) const

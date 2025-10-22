@@ -380,7 +380,6 @@ namespace esphome
                                                       if (packet_)
                                                       {
                                                         bool request_status = false;
-                                                        bool on = false;
                                                         if (packet_->getFanState() != this->extractor_fan_->state)
                                                         {
                                                           ESP_LOGI(TAG, "setting fan %u -> %u", packet_->getFanState(), this->extractor_fan_->state);
@@ -416,20 +415,15 @@ namespace esphome
                                                         ESP_LOGD(TAG, "this->extractor_light_->add_on_state_callback");
                                                         if(packet_)
                                                         {
-                                                          bool on = false;
                                                           bool request_status = false;
-                                                          auto mode = this->extractor_light_->raw_temp_ > 127 ? cmd_light_on_ambi : cmd_light_on_white;
                                                           if (packet_->getLightState() != this->extractor_light_->state_)
                                                           {
                                                             ESP_LOGI(TAG, "setting light %u -> %u", packet_->getLightState(), this->extractor_light_->state_);
 
-                                                            // 36;0 is off
                                                             if (!this->extractor_light_->state_)
                                                             { // turn it off
-                                                              // both 15 (ambi) and 16 (white) are lights
                                                               std::vector<uint8_t> payload = {0};
-                                                              // pick color mode as close as possible to what we need
-                                                              send_cmd(this->extractor_light_->state_ ? mode : cmd_light_off, payload, "lightstate");
+                                                              send_cmd(cmd_light_off, payload, "lightstate");
                                                               request_status = true;
                                                             }
                                                           }
@@ -825,6 +819,14 @@ namespace esphome
     void PurelinePro::dump_config()
     {
       ESP_LOGCONFIG(TAG, "PurelinePro:");
+      if (this->packet_)
+        this->packet_->print();
+      if (this->packet402_)
+        this->packet402_->print();
+      if (this->packet403_)
+        this->packet403_->print();
+      if (this->packet404_)
+        this->packet404_->print();
 #ifdef USE_FAN
       if (this->extractor_fan_)
         this->extractor_fan_->dump_config();
