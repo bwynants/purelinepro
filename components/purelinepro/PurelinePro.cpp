@@ -379,25 +379,28 @@ namespace esphome
 
                                                       if (packet_)
                                                       {
+                                                        bool on = false;
                                                         bool request_status = false;
                                                         if (packet_->getFanState() != this->extractor_fan_->state)
                                                         {
                                                           ESP_LOGI(TAG, "setting fan %u -> %u", packet_->getFanState(), this->extractor_fan_->state);
 
-                                                          if (!this->extractor_fan_->state)
-                                                          {  // turn it off
-                                                            std::vector<uint8_t> payload = {1, this->extractor_fan_->state};
-                                                            send_cmd(cmd_fan_state, payload, "fanstate");
+                                                          on = this->extractor_fan_->state;
+
+                                                          std::vector<uint8_t> payload = {1, this->extractor_fan_->state};
+                                                          send_cmd(cmd_fan_state, payload, "fanstate");
+                                                          this->request_status_update();
+                                                        }
+                                                        if (this->extractor_fan_->state)
+                                                        {
+                                                          if (on || (packet_->getFanSpeed() != this->extractor_fan_->speed))
+                                                          {
+                                                            ESP_LOGI(TAG, "setting fanspeed %u -> %u", packet_->getFanSpeed(), this->extractor_fan_->speed);
+
+                                                            std::vector<uint8_t> payload = {1, (uint8_t)this->extractor_fan_->speed};
+                                                            send_cmd(cmd_fan_speed, payload, "fanspeed");
                                                             request_status = true;
                                                           }
-                                                        }
-                                                        if (this->extractor_fan_->state && (packet_->getFanSpeed() != this->extractor_fan_->speed))
-                                                        {
-                                                          ESP_LOGI(TAG, "setting fanspeed %u -> %u", packet_->getFanSpeed(), this->extractor_fan_->speed);
-
-                                                          std::vector<uint8_t> payload = {1, (uint8_t)this->extractor_fan_->speed};
-                                                          send_cmd(cmd_fan_speed, payload, "fanspeed");
-                                                          request_status = true;
                                                         }
                                                         if (request_status)
                                                         {
@@ -415,29 +418,36 @@ namespace esphome
                                                         ESP_LOGD(TAG, "this->extractor_light_->add_on_state_callback");
                                                         if(packet_)
                                                         {
+                                                          bool stateChanged = false;
+                                                          uint8_t brightness = this->extractor_light_->raw_brightness_;
                                                           bool request_status = false;
                                                           if (packet_->getLightState() != this->extractor_light_->state_)
                                                           {
                                                             ESP_LOGI(TAG, "setting light %u -> %u", packet_->getLightState(), this->extractor_light_->state_);
 
-                                                            if (!this->extractor_light_->state_)
-                                                            { // turn it off
-                                                              std::vector<uint8_t> payload = {0};
-                                                              send_cmd(cmd_light_off, payload, "lightstate");
-                                                              request_status = true;
+                                                            // when shitching 'on' or 'off' we need to restore the colors no mather what....
+                                                            stateChanged = true; 
+                                                            if(!this->extractor_light_->state_) 
+                                                            { // when off we need to set brightness to 0
+                                                              brightness = 0;
                                                             }
+                                                            std::vector<uint8_t> payload = {0};
+                                                            // set mode close to what we request
+                                                            auto mode = this->extractor_light_->raw_temp_ > 127 ? cmd_light_on_ambi : cmd_light_on_white;
+                                                            send_cmd(this->extractor_light_->state_ ? mode : cmd_light_off, payload, "lightstate");
+                                                            request_status = true;
                                                           }
                                                           // Brightness
-                                                          if (this->extractor_light_->state_ && (packet_->getBrightness() != this->extractor_light_->raw_brightness_))
+                                                          if (stateChanged || (packet_->getBrightness() != brightness))
                                                           {
-                                                            ESP_LOGI(TAG, "setting light brightness %u -> %u", packet_->getBrightness(), this->extractor_light_->raw_brightness_);
+                                                            ESP_LOGI(TAG, "setting light brightness %u -> %u", packet_->getBrightness(), brightness);
 
-                                                            std::vector<uint8_t> payload = {1, this->extractor_light_->raw_brightness_};
+                                                            std::vector<uint8_t> payload = {1, brightness};
                                                             send_cmd(cmd_light_brightness, payload, "brightness");
                                                             request_status = true;
                                                           }
                                                           // ColorTemp
-                                                          if (this->extractor_light_->state_ && (packet_->getColorTemp() != this->extractor_light_->raw_temp_))
+                                                          if (packet_->getColorTemp() != this->extractor_light_->raw_temp_)
                                                           {
                                                             ESP_LOGI(TAG, "setting light color temp %u -> %u", packet_->getColorTemp(), this->extractor_light_->raw_temp_);
 
@@ -492,7 +502,7 @@ namespace esphome
                                                            {
                                                              ESP_LOGI(TAG, "auto_off_timer_ started");
 
-                                                             this->auto_off_timer_ = millis() + 5 * 60 * 1000; // run 5 more minutes
+                                                             this->auto_off_timer_ = millis() + ((this->packet402_ && this->packet402_->getRecirculate()) ? 30 :  5) * 60UL * 1000UL; // run 5 more minutes (or 30 min recirculate mode)
                                                              this->auto_off_ = true;
                                                            }
 #endif
@@ -708,9 +718,7 @@ namespace esphome
     {
       std::string payload = "[" + std::to_string(command_id);
       for (int arg : args)
-      {
         payload += ";" + std::to_string(arg);
-      }
       payload += "]";
 
       switch (command_id)
