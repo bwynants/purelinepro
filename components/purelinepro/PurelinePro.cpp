@@ -419,7 +419,7 @@ namespace esphome
                                                         if(packet_)
                                                         {
                                                           bool stateChanged = false;
-                                                          uint8_t brightness = this->extractor_light_->raw_brightness_;
+                                                          uint8_t brightness = this->extractor_light_->state_ ? this->extractor_light_->raw_brightness_ : 0;
                                                           bool request_status = false;
                                                           if (packet_->getLightState() != this->extractor_light_->state_)
                                                           {
@@ -427,10 +427,6 @@ namespace esphome
 
                                                             // when shitching 'on' or 'off' we need to restore the colors no mather what....
                                                             stateChanged = true; 
-                                                            if(!this->extractor_light_->state_) 
-                                                            { // when off we need to set brightness to 0
-                                                              brightness = 0;
-                                                            }
                                                             std::vector<uint8_t> payload = {0};
                                                             // set mode close to what we request
                                                             auto mode = this->extractor_light_->raw_temp_ > 127 ? cmd_light_on_ambi : cmd_light_on_white;
