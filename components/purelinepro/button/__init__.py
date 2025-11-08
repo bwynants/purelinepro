@@ -18,12 +18,16 @@ ExtractorButton = purelinepro_ns.class_("ExtractorButton", button.Button, cg.Com
 CONF_DELAYEDOFF = "delayed_off"
 CONF_RESETGREASE = "reset_grease"
 CONF_DEFAULTLIGHT = "set_default_light"
+CONF_AMBILIGHT = "ambi_light"
+CONF_WHITELIGHT = "white_light"
 CONF_DEFAULTSPEED = "set_default_speed"
 
 TYPES = [
     CONF_POWER,
     CONF_DELAYEDOFF,
     CONF_DEFAULTLIGHT,
+    CONF_AMBILIGHT,
+    CONF_WHITELIGHT,
     CONF_DEFAULTSPEED,
     CONF_RESETGREASE,
 ]
@@ -38,14 +42,20 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_DELAYEDOFF): button.button_schema(
                 ExtractorButton, entity_category=ENTITY_CATEGORY_NONE, icon=ICON_POWER,
             ),
-            cv.Optional(CONF_RESETGREASE): button.button_schema(
-                ExtractorButton, entity_category=ENTITY_CATEGORY_NONE, icon=ICON_AIR_FILTER,
-            ),
             cv.Optional(CONF_DEFAULTLIGHT): button.button_schema(
                 ExtractorButton, entity_category=ENTITY_CATEGORY_CONFIG, icon=ICON_LIGHTBULB,
             ),
+            cv.Optional(CONF_AMBILIGHT): button.button_schema(
+                ExtractorButton, entity_category=ENTITY_CATEGORY_NONE, icon=ICON_LIGHTBULB,
+            ),
+            cv.Optional(CONF_WHITELIGHT): button.button_schema(
+                ExtractorButton, entity_category=ENTITY_CATEGORY_NONE, icon=ICON_LIGHTBULB,
+            ),
             cv.Optional(CONF_DEFAULTSPEED): button.button_schema(
                 ExtractorButton, entity_category=ENTITY_CATEGORY_CONFIG, icon=ICON_LIGHTBULB,
+            ),
+            cv.Optional(CONF_RESETGREASE): button.button_schema(
+                ExtractorButton, entity_category=ENTITY_CATEGORY_NONE, icon=ICON_AIR_FILTER,
             ),
         }
     ).extend(cv.COMPONENT_SCHEMA)
