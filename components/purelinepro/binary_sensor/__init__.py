@@ -8,12 +8,10 @@ from esphome.const import (
 
 from .. import PurelinePro, purelinepro_ns, CONF_PurelinePro_ID
 
-CONF_Boost="boost"
-CONF_Stopping="stopping"
+CONF_CleanGrease="cleangrease"
 
 TYPES = [
-    CONF_Boost,
-    CONF_Stopping,
+    CONF_CleanGrease,
 ]
 
 CONFIG_SCHEMA = cv.All(
@@ -21,10 +19,7 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(CONF_PurelinePro_ID): cv.use_id(PurelinePro),
             cv.Optional(
-                CONF_Boost
-            ): binary_sensor.binary_sensor_schema(),
-            cv.Optional(
-                CONF_Stopping
+                CONF_CleanGrease
             ): binary_sensor.binary_sensor_schema(),
         }
     ).extend(cv.COMPONENT_SCHEMA)
