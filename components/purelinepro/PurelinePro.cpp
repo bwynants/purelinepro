@@ -320,7 +320,9 @@ namespace esphome
       {
         // timeout....
         ESP_LOGW(TAG, "Timeout: %u", this->pending_request_);
-        this->parent()->set_state(espbt::ClientState::CONNECTING);
+        
+        this->pending_request_ = 0; // make sure we only get here once....
+        // reset the connection
         this->parent()->set_enabled(false);
         this->parent()->set_enabled(true);
       }

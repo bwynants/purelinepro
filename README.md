@@ -213,6 +213,12 @@ binary_sensor:
 
 ---
 
+## 🐛 Known problems
+
+- When using **light_transition** for smooth transitions in **Bubble Card** sliders, the light crashes because too many requests are sent in a short time.
+
+---
+
 ## 📎 License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
