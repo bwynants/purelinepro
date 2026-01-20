@@ -6,6 +6,12 @@ This integration is based on reverse-engineering the communication between the o
 
 ---
 
+## 🐛 Compatibility
+
+Tested with Novy Pureline Pro and Novy Cloud extractor
+
+---
+
 ## 🔍 Discover Devices
 
 To discover the MAC address, service UUIDs, and iBeacon UUIDs, use the following ESPHome configuration:
