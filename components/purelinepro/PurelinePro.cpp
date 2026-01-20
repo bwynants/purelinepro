@@ -42,11 +42,13 @@ namespace esphome
           this->auto_off_ = false; // stop running
           auto_off_timer = 0;
 
+#ifdef USE_FAN
           // put fan off
           if (this->extractor_fan_) {
             this->extractor_fan_->state = 0;
             this->extractor_fan_->publish_state();
           }
+#endif
         }
         else
         {
