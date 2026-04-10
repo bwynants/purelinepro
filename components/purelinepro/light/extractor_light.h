@@ -89,9 +89,8 @@ namespace esphome
         update_esp_light();
       }
 
-      void add_on_state_callback(std::function<void()> &&callback)
-      {
-        this->state_callback_.add(std::move(callback));
+      template<typename F> void add_on_state_callback(F &&callback) {
+        this->state_callback_.add(std::forward<F>(callback));
       }
 
       bool state_ = false;
