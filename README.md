@@ -4,6 +4,8 @@ An ESPHome custom component for controlling a **Novy Pureline Pro extractor hood
 
 This integration is based on reverse-engineering the communication between the official mobile app and the extractor hood.
 
+https://github.com/bwynants/hass-purelinepro is similar, but is a HA integration
+
 ---
 
 ## 🐛 Compatibility
